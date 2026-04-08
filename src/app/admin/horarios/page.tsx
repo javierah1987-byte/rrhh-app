@@ -7,7 +7,7 @@ import { format, startOfWeek, addDays, subWeeks, addWeeks } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
-const DIAS = ['Lun','Mar','Mié','Jue','Vie']
+const DIAS = ['Lun','Mar','MiÃ©','Jue','Vie']
 function getInicioSemana(fecha: Date) { return startOfWeek(fecha, { weekStartsOn: 1 }) }
 
 export default function HorariosPage() {
@@ -17,7 +17,7 @@ export default function HorariosPage() {
   const [filtroEmp, setFiltroEmp] = useState('')
   const [loading, setLoading] = useState(true)
   const dias = Array.from({length:5}, (_,i) => addDays(semana, i))
-  const labelSemana = `${format(semana,'d MMM',{locale:es})} – ${format(addDays(semana,4),'d MMM yyyy',{locale:es})}`
+  const labelSemana = `${format(semana,'d MMM',{locale:es})} â ${format(addDays(semana,4),'d MMM yyyy',{locale:es})}`
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -40,15 +40,15 @@ export default function HorariosPage() {
     const entrada = fs.find(f => f.tipo === 'entrada')
     const salida = fs.find(f => f.tipo === 'salida')
     if (!entrada) return null
-    return { entrada: formatHora(entrada.timestamp), salida: salida ? formatHora(salida.timestamp) : '—' }
+    return { entrada: formatHora(entrada.timestamp), salida: salida ? formatHora(salida.timestamp) : 'â' }
   }
   async function exportarExcel() {
     const { utils, writeFileXLSX } = await import('xlsx')
-    const rows: unknown[] = [['Empleado', ...DIAS.map((_,i) => format(addDays(semana,i),"EEEE d/M",{locale:es})), 'Total', 'Extra/Déficit']]
+    const rows: any[][] = [['Empleado', ...DIAS.map((_,i) => format(addDays(semana,i),"EEEE d/M",{locale:es})), 'Total', 'Extra/DÃ©ficit']]
     for (const emp of empleados) {
       const row: unknown[] = [emp.nombre]
       let totalMin = 0
-      for (const dia of dias) { const fs = fichajesDia(emp.id,dia); const mins = calcularMinutosTrabajados(fs); totalMin += mins; const es_ = entradaSalida(fs); row.push(es_ ? `${es_.entrada}–${es_.salida}` : '') }
+      for (const dia of dias) { const fs = fichajesDia(emp.id,dia); const mins = calcularMinutosTrabajados(fs); totalMin += mins; const es_ = entradaSalida(fs); row.push(es_ ? `${es_.entrada}â${es_.salida}` : '') }
       const jornada = emp.jornada_horas * 5 * 60
       row.push(minutosAHHMM(totalMin)); row.push(minutosAHHMM(totalMin - jornada)); rows.push(row)
     }
@@ -83,7 +83,7 @@ export default function HorariosPage() {
                 const extra = totalMin - emp.jornada_horas * 5 * 60
                 return (<tr key={emp.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{backgroundColor:emp.avatar_color}}>{iniciales(emp.nombre)}</div><span className="font-medium text-gray-900 text-xs">{emp.nombre}</span></div></td>
-                  {celdas.map((c,i) => (<td key={i} className="px-3 py-3 text-center">{c.es ? (<div className="font-mono text-xs"><span className="text-gray-900">{c.es.entrada}</span><span className="text-gray-400"> – </span><span className="text-gray-900">{c.es.salida}</span></div>) : (<span className="text-gray-300">—</span>)}</td>))}
+                  {celdas.map((c,i) => (<td key={i} className="px-3 py-3 text-center">{c.es ? (<div className="font-mono text-xs"><span className="text-gray-900">{c.es.entrada}</span><span className="text-gray-400"> â </span><span className="text-gray-900">{c.es.salida}</span></div>) : (<span className="text-gray-300">â</span>)}</td>))}
                   <td className="px-3 py-3 text-center font-mono text-sm font-medium text-gray-900">{minutosAHHMM(totalMin)}</td>
                   <td className="px-3 py-3 text-center font-mono text-sm font-medium"><span className={extra >= 0 ? 'text-emerald-600' : 'text-red-500'}>{extra >= 0 ? '+' : ''}{minutosAHHMM(extra)}</span></td>
                 </tr>)

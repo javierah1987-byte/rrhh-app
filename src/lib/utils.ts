@@ -2,7 +2,7 @@ import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 export const MESES = ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 export const TIPOS_SOLICITUD: Record<string,string> = {vacaciones:'Vacaciones',asuntos_propios: 'Asuntos propios',permiso_sin_sueldo:'Permiso sin sueldo',cambio_turno:'Cambio de turno',teletrabajo:'Teletrabajo'}
-export const TIPOS_BAJA: Record<string,string> = {enfermedad_comun:'Enfermedad común',accidente_laboral:'Accidente laboral',maternidad_paternidad:'Maternidad / Paternidad',accidente_no_laboral:'Accidente no laboral',cuidado_familiar:'Cuidado familiar'}
+export const TIPOS_BAJA: Record<string,string> = {enfermedad_comun:'Enfermedad comÃºn',accidente_laboral:'Accidente laboral',maternidad_paternidad:'Maternidad / Paternidad',accidente_no_laboral:'Accidente no laboral',cuidado_familiar:'Cuidado familiar'}
 export function iniciales(nombre: string) { return nombre.split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase() }
 export function diasEntre(inicio: string, fin: string) { return differenceInCalendarDays(parseISO(fin),parseISO(inicio))+1 }
 export function formatFecha(fecha: string) { return format(parseISO(fecha),'d MMM yyyy',{locale:es}) }
@@ -35,3 +35,5 @@ export const BADGE_ESTADO_EMPLEADO:Record<string,string>={activo:'bg-emerald-100
 export const BADVE_ESTADO_SOLICITUD:Record<string,string>={pendiente:'bg-amber-100 text-amber-800',aprobada:'bg-emerald-100 text-emerald-800',rechazada:'bg-red-100 text-red-800'}
 export const BADGE_FICHAJE:Record<string,string>={trabajando:'bg-emerald-100 text-emerald-800',pausa:'bg-amber-100 text-amber-800',finalizado:'bg-gray-100 text-gray-700',sin_fichar:'bg-gray-100 text-gray-500'}
 export const LABEL_FICHAJE:Record<string,string>={trabajando:'Trabajando',pausa:'En pausa',finalizado:'Finalizado',sin_fichar:'Sin fichar'}
+
+export const BADGE_ESTADO_SOLICITUD:Record<string,string>={pendiente:'bg-amber-100 text-amber-800',aprobada:'bg-emerald-100 text-emerald-800',rechazada:'bg-red-100 text-red-800'}

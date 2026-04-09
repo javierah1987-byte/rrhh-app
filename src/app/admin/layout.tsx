@@ -97,9 +97,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: '/admin/nominas', label: 'Nóminas', icon: CreditCard, badge: 0 },
     { href: '/admin/informes', label: 'Informes', icon: TrendingUp, badge: 0 },
     { href: '/admin/mensajes', label: 'Mensajes', icon: MessageSquare, badge: 0 },
-    { href: '/admin/recordatorios', label: 'Recordatorios', icon: AlarmClock, badge: 0 },
+    { href: '/admin/festivos', label: 'Festivos', icon: CalendarDays, badge: 0 },{ href: '/admin/recordatorios', label: 'Recordatorios', icon: AlarmClock, badge: 0 },
     { href: '/admin/avisos', label: 'Avisos', icon: Bell, badge: 0 },
-    { href: '/admin/documentos', label: 'Documentos', icon: FolderOpen, badge: 0 },
+    { href: '/admin/solicitudes-documentos', label: 'Sol. documentos', icon: FileText, badge: 0 },{ href: '/admin/documentos', label: 'Documentos', icon: FolderOpen, badge: 0 },
     { href: '/admin/calendario', label: 'Calendario', icon: CalendarDays, badge: 0 },
   ]
 

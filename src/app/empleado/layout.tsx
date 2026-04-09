@@ -9,7 +9,7 @@ const NAV = [
   { href: '/empleado', label: 'Inicio', icon: LayoutDashboard },
   { href: '/empleado/fichaje', label: 'Fichaje', icon: Clock },
   { href: '/empleado/solicitudes', label: 'Solicitudes', icon: Calendar },
-  { href: '/empleado/bajas', label: 'Mis bajas', icon: FileText },
+  { href: '/empleado/bajas', label: 'Mis bajas', icon: FileText },{ href: '/empleado/solicitar-documentos', label: 'Pedir documentos', icon: FolderOpen },
   { href: '/empleado/nominas', label: 'Nóminas', icon: CreditCard },
   { href: '/empleado/calendario', label: 'Calendario', icon: CalendarDays },
   { href: '/empleado/mensajes', label: 'Mensajes', icon: MessageSquare },

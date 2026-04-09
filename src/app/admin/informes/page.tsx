@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase } from '@/lib/supabase'
 import { Download, FileSpreadsheet, FileText, TrendingUp, Users, Clock, Calendar } from 'lucide-react'
 
@@ -32,7 +33,7 @@ export default function InformesPage() {
 
   function getNombre(id:string) { return empleados.find(e=>e.id===id)?.nombre||id }
 
-  // Estadísticas
+  // EstadÃ­sticas
   const nominasAnio = nominas.filter(n=>n.anio===anio)
   const costeTotalAnio = nominasAnio.reduce((s,n)=>s+(n.salario_base+n.complementos),0)
   const liquidoTotalAnio = nominasAnio.reduce((s,n)=>s+n.liquido,0)
@@ -43,7 +44,6 @@ export default function InformesPage() {
   },0)
 
   async function exportExcel(tipo: string) {
-    const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs' as any)
     let ws: any, titulo = ''
 
     if (tipo==='empleados') {
@@ -53,7 +53,7 @@ export default function InformesPage() {
       ws = XLSX.utils.aoa_to_sheet(rows)
     } else if (tipo==='nominas') {
       titulo = 'Nominas_'+anio
-      const rows = [['Empleado','Mes','Año','Salario base','Complementos','IRPF%','SS%','Líquido'],
+      const rows = [['Empleado','Mes','AÃ±o','Salario base','Complementos','IRPF%','SS%','LÃ­quido'],
         ...nominasAnio.map(n=>[getNombre(n.empleado_id),MESES[n.mes-1],n.anio,n.salario_base,n.complementos,'',n.liquido])]
       ws = XLSX.utils.aoa_to_sheet(rows)
     } else if (tipo==='solicitudes') {
@@ -76,20 +76,20 @@ export default function InformesPage() {
   function exportPDF(tipo: string) {
     const w = window.open('','_blank')!
     let html = '<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:20px}h1{color:#4F46E5}table{border-collapse:collapse;width:100%}th{background:#EEF2FF;color:#4F46E5;padding:8px;text-align:left;font-size:12px}td{padding:8px;border-bottom:1px solid #E2E8F0;font-size:12px}.footer{margin-top:20px;font-size:10px;color:#94A3B8}</style></head><body>'
-    html += `<h1>Nexo HR — ${tipo.charAt(0).toUpperCase()+tipo.slice(1)}</h1>`
+    html += `<h1>Nexo HR â ${tipo.charAt(0).toUpperCase()+tipo.slice(1)}</h1>`
     html += `<p style="color:#64748B;font-size:12px">Generado: ${new Date().toLocaleDateString('es-ES')}</p><table>`
     
     if (tipo==='empleados') {
       html += '<tr><th>Nombre</th><th>Departamento</th><th>Puesto</th><th>Contrato</th><th>Estado</th></tr>'
       empleados.forEach(e=>{ html+=`<tr><td>${e.nombre}</td><td>${e.departamento}</td><td>${e.puesto}</td><td>${e.tipo_contrato?.replace(/_/g,' ')}</td><td>${e.estado}</td></tr>` })
     } else if (tipo==='nominas') {
-      html += '<tr><th>Empleado</th><th>Período</th><th>Bruto</th><th>Neto</th></tr>'
+      html += '<tr><th>Empleado</th><th>PerÃ­odo</th><th>Bruto</th><th>Neto</th></tr>'
       nominasAnio.forEach(n=>{ html+=`<tr><td>${getNombre(n.empleado_id)}</td><td>${MESES[n.mes-1]} ${n.anio}</td><td>${fmt(n.salario_base+n.complementos)}</td><td>${fmt(n.liquido)}</td></tr>` })
     } else {
       html += '<tr><th>Empleado</th><th>Tipo</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr>'
       solicitudes.forEach(s=>{ html+=`<tr><td>${getNombre(s.empleado_id)}</td><td>${s.tipo.replace(/_/g,' ')}</td><td>${s.fecha_inicio}</td><td>${s.fecha_fin}</td><td>${s.estado}</td></tr>` })
     }
-    html += `</table><p class="footer">Nexo HR © ${new Date().getFullYear()} — ACME Corp</p></body></html>`
+    html += `</table><p class="footer">Nexo HR Â© ${new Date().getFullYear()} â ACME Corp</p></body></html>`
     w.document.write(html)
     w.document.close()
     w.focus()
@@ -98,7 +98,7 @@ export default function InformesPage() {
 
   const INFORMES_DISP = [
     { id:'empleados', titulo:'Empleados', desc:'Lista completa del equipo con sus datos', icon:Users, color:'text-indigo-600', bg:'bg-indigo-50' },
-    { id:'nominas', titulo:`Nóminas ${anio}`, desc:'Detalle de todas las nóminas del año seleccionado', icon:TrendingUp, color:'text-emerald-600', bg:'bg-emerald-50' },
+    { id:'nominas', titulo:`NÃ³minas ${anio}`, desc:'Detalle de todas las nÃ³minas del aÃ±o seleccionado', icon:TrendingUp, color:'text-emerald-600', bg:'bg-emerald-50' },
     { id:'solicitudes', titulo:'Solicitudes', desc:'Vacaciones, permisos y solicitudes del equipo', icon:Calendar, color:'text-amber-600', bg:'bg-amber-50' },
     { id:'fichajes', titulo:'Fichajes', desc:'Registro de entradas y salidas recientes', icon:Clock, color:'text-violet-600', bg:'bg-violet-50' },
   ]
@@ -113,20 +113,20 @@ export default function InformesPage() {
           <p className="text-sm text-slate-500 mt-1">Exporta los datos del equipo en Excel o PDF</p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-slate-500">Año:</label>
+          <label className="text-xs font-semibold text-slate-500">AÃ±o:</label>
           <select value={anio} onChange={e=>setAnio(+e.target.value)} className="input w-24">
             {[2023,2024,2025,2026].map(a=><option key={a} value={a}>{a}</option>)}
           </select>
         </div>
       </div>
 
-      {/* Resumen rápido */}
+      {/* Resumen rÃ¡pido */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         {[
           { label:'Empleados activos', value:empleados.filter(e=>e.estado==='activo').length, color:'text-indigo-600' },
           { label:'Coste bruto '+anio, value:fmt(costeTotalAnio), color:'text-slate-900' },
-          { label:'Total líquido '+anio, value:fmt(liquidoTotalAnio), color:'text-emerald-600' },
-          { label:'Días vacaciones aprobados', value:diasVacaciones, color:'text-amber-600' },
+          { label:'Total lÃ­quido '+anio, value:fmt(liquidoTotalAnio), color:'text-emerald-600' },
+          { label:'DÃ­as vacaciones aprobados', value:diasVacaciones, color:'text-amber-600' },
         ].map((s,i)=>(
           <div key={i} className="stat-card">
             <span className={`text-xl font-bold ${s.color}`}>{s.value}</span>

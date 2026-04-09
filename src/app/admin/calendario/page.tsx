@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { ChevronLeft, ChevronRight, Calendar, CalendarDays } from 'lucide-react'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const DIAS = ['Lun','Mar','MiÃ©','Jue','Vie','SÃ¡b','Dom']
+const DIAS = ['Lun','Mar','MiÃÂ©','Jue','Vie','SÃÂ¡b','Dom']
 
 const COLORS = [
   'bg-indigo-400','bg-emerald-400','bg-amber-400','bg-rose-400',
@@ -33,7 +33,7 @@ export default function AdminCalendario() {
       .then(({ data }) => { setVacs((data as any[]) || []); setLoading(false) })
   }, [])
 
-  // Mapa empleado â color
+  // Mapa empleado Ã¢ÂÂ color
   const empColors = useMemo(() => {
     const ids = Array.from(new Set(vacs.map(v => v.empleado_id)))
     return Object.fromEntries(ids.map((id, i) => [id, COLORS[i % COLORS.length]]))
@@ -77,7 +77,7 @@ export default function AdminCalendario() {
                       {(v.empleados as any).nombre.split(' ')[0]}
                     </div>
                   ))}
-                  {vs.length > 2 && <div className="text-[10px] text-slate-400">+{vs.length-2} mÃ¡s</div>}
+                  {vs.length > 2 && <div className="text-[10px] text-slate-400">+{vs.length-2} mÃÂ¡s</div>}
                 </div>
               </div>
             )
@@ -114,7 +114,7 @@ export default function AdminCalendario() {
                     <span className="ml-1 opacity-80 text-[10px]">{(v.empleados as any).nombre.split(' ')[0]}</span>
                   </div>
                 ))}
-                {vs.length === 0 && <p className="text-xs text-slate-300 text-center mt-4">â</p>}
+                {vs.length === 0 && <p className="text-xs text-slate-300 text-center mt-4">Ã¢ÂÂ</p>}
               </div>
             </div>
           )
@@ -145,7 +145,7 @@ export default function AdminCalendario() {
 
   const titulo = vista==='mes'
     ? `${MESES[mes]} ${anio}`
-    : `${semana.getDate()} ${MESES[semana.getMonth()]} â ${new Date(semana.getTime()+6*86400000).getDate()} ${MESES[new Date(semana.getTime()+6*86400000).getMonth()]} ${anio}`
+    : `${semana.getDate()} ${MESES[semana.getMonth()]} Ã¢ÂÂ ${new Date(semana.getTime()+6*86400000).getDate()} ${MESES[new Date(semana.getTime()+6*86400000).getMonth()]} ${anio}`
 
   return (
     <div>

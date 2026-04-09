@@ -1,10 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ChevronLeft, ChevronRight, Calendar, CalendarDays, Sun } from 'lucide-react'
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
-const DIAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom']
+const DIAS = ['Lun','Mar','MiÃ©','Jue','Vie','SÃ¡b','Dom']
 
 type Vac = { id: string; fecha_inicio: string; fecha_fin: string; tipo: string; estado: string }
 
@@ -120,7 +120,7 @@ export default function EmpleadoCalendario() {
                   <span className="capitalize text-[10px]">{v.tipo.replace('_',' ')}</span>
                 </div>
               ))}
-              {vs.length === 0 && <p className="text-xs text-slate-300 text-center mt-6">—</p>}
+              {vs.length === 0 && <p className="text-xs text-slate-300 text-center mt-6">â</p>}
             </div>
           )
         })}
@@ -128,7 +128,7 @@ export default function EmpleadoCalendario() {
     )
   }
 
-  // Resumen días
+  // Resumen dÃ­as
   const diasAprobados = useMemo(() => {
     let total = 0
     vacs.filter(v=>v.estado==='aprobada' && new Date(v.fecha_inicio).getFullYear()===anio).forEach(v => {
@@ -153,14 +153,14 @@ export default function EmpleadoCalendario() {
 
   const titulo = vista==='mes'
     ? `${MESES[mes]} ${anio}`
-    : `${semana.getDate()} ${MESES[semana.getMonth()]} – ${new Date(semana.getTime()+6*86400000).getDate()} ${MESES[new Date(semana.getTime()+6*86400000).getMonth()]} ${anio}`
+    : `${semana.getDate()} ${MESES[semana.getMonth()]} â ${new Date(semana.getTime()+6*86400000).getDate()} ${MESES[new Date(semana.getTime()+6*86400000).getMonth()]} ${anio}`
 
   return (
     <div>
       <div className="page-header">
         <div>
           <h1 className="page-title">Mi calendario</h1>
-          <p className="text-sm text-slate-500 mt-1">Tus vacaciones y días libres — {anio}</p>
+          <p className="text-sm text-slate-500 mt-1">Tus vacaciones y dÃ­as libres â {anio}</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={irHoy} className="btn-secondary text-xs px-3 py-1.5">Hoy</button>
@@ -178,7 +178,7 @@ export default function EmpleadoCalendario() {
       {/* Resumen */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[
-          { label: 'Días aprobados este año', value: diasAprobados, color: 'text-emerald-600' },
+          { label: 'DÃ­as aprobados este aÃ±o', value: diasAprobados, color: 'text-emerald-600' },
           { label: 'Solicitudes pendientes', value: vacs.filter(v=>v.estado==='pendiente').length, color: 'text-amber-600' },
           { label: 'Total solicitudes', value: vacs.length, color: 'text-indigo-600' },
         ].map((s,i) => (

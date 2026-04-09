@@ -1,57 +1,138 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Baja } from '@/lib/supabase'
-import { iniciales, TIPOS_BAJA, formatFecha } from '@/lib/utils'
-import { Plus, X, HeartPulse } from 'lucide-react'
+import { Search, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { EmptyState, SkeletonTable } from '@/components/shared'
+import Breadcrumb from '@/components/Breadcrumb'
 
-export default function BajasPage() {
-  const [bajas, setBajas] = useState<any[]>([])
-  const [empleados, setEmpleados] = useState<any[]>([])
+type Baja = { id:string; empleado_id:string; tipo:string; fecha_inicio:string; fecha_fin_prevista:string|null; activa:boolean; numero_parte:string|null; observaciones:string|null; empleados:{nombre:string;avatar_color:string} }
+
+const TIPO_LABEL: Record<string,string> = {
+  enfermedad_comun:'Enfermedad común', accidente_laboral:'Accidente laboral',
+  maternidad_paternidad:'Maternidad/Paternidad', accidente_no_laboral:'Accidente no laboral', cuidado_familiar:'Cuidado familiar',
+}
+
+type SortKey = 'nombre'|'tipo'|'fecha_inicio'|'activa'
+type SortDir = 'asc'|'desc'
+
+function SortTh({ label, sk, sortKey, sortDir, onSort }: { label:string; sk:SortKey; sortKey:SortKey; sortDir:SortDir; onSort:(k:SortKey)=>void }) {
+  const active = sortKey===sk
+  return (
+    <th className="table-header cursor-pointer select-none group" onClick={()=>onSort(sk)}>
+      <div className="flex items-center gap-1">
+        {label}
+        {active
+          ? sortDir==='asc'
+            ? <ChevronUp className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400"/>
+            : <ChevronDown className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400"/>
+          : <ChevronsUpDown className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 group-hover:text-slate-400"/>}
+      </div>
+    </th>
+  )
+}
+
+export default function BajasAdminPage() {
+  const [bajas, setBajas] = useState<Baja[]>([])
   const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState(false)
-  const [form, setForm] = useState({ empleado_id:'', tipo:'enfermedad_comun', fecha_inicio:'', fecha_fin_prevista:'', numero_parte:'', observaciones:'' })
-  const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState('')
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
+  const [busqueda, setBusqueda] = useState('')
+  const [filtroActiva, setFiltroActiva] = useState<'todas'|'activa'|'finalizada'>('todas')
+  const [sortKey, setSortKey] = useState<SortKey>('fecha_inicio')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  const cargar = useCallback(async () => {
-    setLoading(true)
-    const { data: emps } = await supabase.from('empleados').select('*').neq('rol','admin').order('nombre')
-    const { data: bs } = await supabase.from('bajas').select('*, empleados(nombre, avatar_color, departamento)').order('created_at', { ascending: false })
-    setEmpleados(emps || [])
-    setBajas(bs || [])
-    setLoading(false)
+  useEffect(() => {
+    supabase.from('bajas').select('*,empleados(nombre,avatar_color)').order('fecha_inicio',{ascending:false})
+      .then(({ data }) => { setBajas((data as any[])||[]); setLoading(false) })
   }, [])
-  useEffect(() => { cargar() }, [cargar])
 
-  async function crearBaja() {
-    if (!form.empleado_id || !form.fecha_inicio) return
-    setSaving(true)
-    await supabase.from('bajas').insert({ ...form, activa: true })
-    await supabase.from('empleados').update({ estado: 'baja' }).eq('id', form.empleado_id)
-    setSaving(false); setModal(false)
-    showToast('Baja registrada'); cargar()
-  }
-  async function darAlta(baja: any) {
-    await supabase.from('bajas').update({ activa: false, fecha_alta: new Date().toISOString().slice(0,10) }).eq('id', baja.id)
-    await supabase.from('empleados').update({ estado: 'activo' }).eq('id', baja.empleado_id)
-    showToast('Alta concedida'); cargar()
+  function handleSort(k: SortKey) {
+    if (sortKey===k) setSortDir(d=>d==='asc'?'desc':'asc')
+    else { setSortKey(k); setSortDir('asc') }
   }
 
-  const activas = bajas.filter(b => b.activa)
-  const historico = bajas.filter(b => !b.activa)
+  const filtradas = useMemo(() => {
+    let list = bajas
+    if (busqueda) {
+      const q = busqueda.toLowerCase()
+      list = list.filter(b =>
+        (b.empleados as any).nombre.toLowerCase().includes(q) ||
+        (TIPO_LABEL[b.tipo]||b.tipo).toLowerCase().includes(q)
+      )
+    }
+    if (filtroActiva!=='todas') list = list.filter(b=>filtroActiva==='activa'?b.activa:!b.activa)
+    return [...list].sort((a,b)=>{
+      let av: any, bv: any
+      if (sortKey==='nombre') { av=(a.empleados as any).nombre; bv=(b.empleados as any).nombre }
+      else if (sortKey==='activa') { av=a.activa?'1':'0'; bv=b.activa?'1':'0' }
+      else { av=(a as any)[sortKey]||''; bv=(b as any)[sortKey]||'' }
+      const cmp = String(av).localeCompare(String(bv),'es',{numeric:true})
+      return sortDir==='asc'?cmp:-cmp
+    })
+  }, [bajas, busqueda, filtroActiva, sortKey, sortDir])
 
   return (
-    <div>
-      {toast && <div className="fixed top-4 right-4 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm z-50">{toast}</div>}
-      <div className="flex items-center justify-between mb-6">
-        <div><h1 className="text-xl font-bold text-gray-900">Bajas medicas</h1><p className="text-sm text-gray-500 mt-0.5">{activas.length} baja{activas.length!==1?'s':''} activa{activas.length!==1?'s':''}</p></div>
-        <button onClick={() => setModal(true)} className="btn-primary flex items-center gap-1.5"><Plus className="w-4 h-4" />Registrar baja</button>
+    <div className="animate-fade-in">
+      <Breadcrumb/>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Bajas</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{bajas.filter(b=>b.activa).length} activas de {bajas.length}</p>
+        </div>
       </div>
-      {activas.length > 0 && (<div className="mb-6"><h2 className="text-sm font-semibold text-gray-600 mb-3">Bajas activas</h2><div className="space-y-3">{activas.map((b:any) => (<div key={b.id} className="card p-4 border-l-4 border-red-400"><div className="flex items-center justify-between"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold" style={{backgroundColor:b.empleados?.avatar_color}}>{iniciales(b.empleados?.nombre||'')}</div><div><p className="font-medium text-gray-900">{b.empleados?.nombre}</p><p className="text-xs text-gray-500">{TIPOS_BAJA[b.tipo as keyof typeof TIPOS_BAJA]} · Desde {formatFecha(b.fecha_inicio)}</p></div></div><button onClick={() => darAlta(b)} className="btn-success">Dar alta</button></div>{b.observaciones && <p className="text-sm text-gray-500 mt-2 pl-12">{b.observaciones}</p>}</div>))}</div></div>)}
-      <div><h2 className="text-sm font-semibold text-gray-600 mb-3">Historico</h2><div className="card overflow-hidden"><table className="w-full text-sm"><thead><tr className="border-b border-gray-100 bg-gray-50">{['Empleado','Tipo','Inicio','Alta','N. Parte'].map(h=><th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500">{h}</th>)}</tr></thead><tbody>{loading?Array.from({length:3}).map((_,i)=><tr key={i} className="border-b border-gray-50">{Array.from({length:5}).map((_,j)=><td key={j} className="px-4 py-3"><div className="skeleton h-4 w-20"/></td>)}</tr>):historico.map((b:any)=>(<tr key={b.id} className="border-b border-gray-50"><td className="px-4 py-3 font-medium text-gray-900">{b.empleados?.nombre}</td><td className="px-4 py-3 text-gray-600">{TIPOS_BAJA[b.tipo as keyof typeof TIPOS_BAJA]}</td><td className="px-4 py-3 text-gray-600">{formatFecha(b.fecha_inicio)}</td><td className="px-4 py-3 text-gray-600">{b.fecha_alta?formatFecha(b.fecha_alta):'—'}</td><td className="px-4 py-3 text-gray-500">{b.numero_parte||'—'}</td></tr>))}</tbody></table></div></div>
-      {modal && (<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="bg-white rounded-2xl w-full max-w-md p-6 m-4"><div className="flex items-center justify-between mb-5"><h3 className="font-semibold text-gray-900">Registrar baja</h3><button onClick={()=>setModal(false)}><X className="w-5 h-5 text-gray-400"/></button></div><div className="space-y-4"><div><label className="label">Empleado</label><select value={form.empleado_id} onChange={e=>setForm(f=>({...f,empleado_id:e.target.value}))} className="input"><option value="">Selecciona...</option>{empleados.filter(e=>e.estado==='activo').map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}</select></div><div><label className="label">Tipo de baja</label><select value={form.tipo} onChange={e=>setForm(f=>({...f,tipo:e.target.value}))} className="input">{Object.entries(TIPOS_BAJA).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></div><div className="grid grid-cols-2 gap-3"><div><label className="label">Fecha inicio</label><input type="date" value={form.fecha_inicio} onChange={e=>setForm(f=>({...f,fecha_inicio:e.target.value}))} className="input"/></div><div><label className="label">Fin previsto</label><input type="date" value={form.fecha_fin_prevista} onChange={e=>setForm(f=>({...f,fecha_fin_prevista:e.target.value}))} className="input"/></div></div><div><label className="label">Numero de parte</label><input type="text" value={form.numero_parte} onChange={e=>setForm(f=>({...f,numero_parte:e.target.value}))} className="input" placeholder="Opcional"/></div><div><label className="label">Observaciones</label><textarea value={form.observaciones} onChange={e=>setForm(f=>({...f,observaciones:e.target.value}))} className="input" rows={2}/></div></div><div className="flex gap-3 mt-6"><button onClick={()=>setModal(false)} className="btn-secondary flex-1">Cancelar</button><button onClick={crearBaja} disabled={saving} className="btn-primary flex-1">{saving?'Guardando...':'Registrar baja'}</button></div></div></div>)}
+
+      {/* Filtros y búsqueda */}
+      <div className="flex flex-wrap gap-3 mb-5">
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"/>
+          <input value={busqueda} onChange={e=>setBusqueda(e.target.value)}
+            className="input pl-9 w-52" placeholder="Buscar empleado o tipo…"/>
+        </div>
+        <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+          {(['todas','activa','finalizada'] as const).map(f=>(
+            <button key={f} onClick={()=>setFiltroActiva(f)}
+              className={`px-4 py-2 text-xs font-medium capitalize transition-colors ${filtroActiva===f?'bg-indigo-600 text-white':'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+              {f}
+            </button>
+          ))}
+        </div>
+        <span className="text-sm text-slate-400 dark:text-slate-500 self-center">{filtradas.length} resultado{filtradas.length!==1?'s':''}</span>
+      </div>
+
+      {loading ? <SkeletonTable rows={4}/> : filtradas.length===0 ? (
+        <EmptyState icon="checkmark" title="Sin bajas" description={busqueda?'No hay resultados para tu búsqueda':'No hay bajas registradas'}/>
+      ) : (
+        <div className="card overflow-hidden">
+          <table className="w-full">
+            <thead><tr>
+              <SortTh label="Empleado" sk="nombre" sortKey={sortKey} sortDir={sortDir} onSort={handleSort}/>
+              <SortTh label="Tipo" sk="tipo" sortKey={sortKey} sortDir={sortDir} onSort={handleSort}/>
+              <SortTh label="Inicio" sk="fecha_inicio" sortKey={sortKey} sortDir={sortDir} onSort={handleSort}/>
+              <th className="table-header">Fin previsto</th>
+              <SortTh label="Estado" sk="activa" sortKey={sortKey} sortDir={sortDir} onSort={handleSort}/>
+              <th className="table-header">Parte</th>
+            </tr></thead>
+            <tbody>
+              {filtradas.map(b=>(
+                <tr key={b.id} className="table-row">
+                  <td className="table-cell">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                        style={{backgroundColor:(b.empleados as any).avatar_color||'#6366f1'}}>
+                        {(b.empleados as any).nombre.split(' ').map((n:string)=>n[0]).join('').substring(0,2)}
+                      </div>
+                      <span className="font-medium text-slate-800 dark:text-slate-200">{(b.empleados as any).nombre}</span>
+                    </div>
+                  </td>
+                  <td className="table-cell">{TIPO_LABEL[b.tipo]||b.tipo}</td>
+                  <td className="table-cell">{new Date(b.fecha_inicio).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</td>
+                  <td className="table-cell">{b.fecha_fin_prevista?new Date(b.fecha_fin_prevista).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'}):<span className="text-slate-300 dark:text-slate-600">—</span>}</td>
+                  <td className="table-cell"><span className={`badge ${b.activa?'badge-red':'badge-slate'}`}>{b.activa?'Activa':'Finalizada'}</span></td>
+                  <td className="table-cell">{b.numero_parte||<span className="text-slate-300 dark:text-slate-600">—</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Search, ExternalLink, Plus, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 import { EmptyState, SkeletonTable } from '@/components/shared'
-import BreadcrumbComponent from '@/components/Breadcrumb'
+import { Breadcrumb } from '@/components/Breadcrumb'
 
 type Emp = { id:string; nombre:string; email:string; departamento:string; puesto:string; tipo_contrato:string; fecha_alta:string; estado:string; avatar_color:string }
 type SortKey = keyof Emp
@@ -55,7 +55,7 @@ export default function EmpleadosPage() {
 
   return (
     <div className="animate-fade-in">
-      <BreadcrumbComponent/>
+      <Breadcrumb/>
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="page-title">Empleados</h1>
@@ -66,11 +66,11 @@ export default function EmpleadosPage() {
       <div className="relative mb-5">
         <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400"/>
         <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} className="input pl-9 max-w-sm" placeholder="Buscar por nombre, puesto, departamento…"/>
-        {busqueda && <span className="absolute right-3 top-2 text-xs text-slate-400">{filtrados.length} resultado{filtrados.length!==1?'s':''}</span>}
+        {busqueda&&<span className="absolute right-3 top-2 text-xs text-slate-400">{filtrados.length} resultado{filtrados.length!==1?'s':''}</span>}
       </div>
       {loading ? <SkeletonTable rows={5}/> : filtrados.length===0 ? (
         <EmptyState icon="employees" title={busqueda?'Sin resultados':'No hay empleados'}
-          description={busqueda?`No se encontraron empleados para "${busqueda}"`:'Añade el primer empleado del equipo'}
+          description={busqueda?`No se encontraron empleados para "${busqueda}"`:'Añade el primer empleado'}
           action={!busqueda&&<button onClick={()=>router.push('/admin/empleados/nuevo')} className="btn-primary text-sm"><Plus className="w-4 h-4"/>Nuevo empleado</button>}/>
       ) : (
         <div className="card overflow-hidden">
@@ -91,10 +91,7 @@ export default function EmpleadosPage() {
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{backgroundColor:e.avatar_color||'#6366f1'}}>
                         {e.nombre.split(' ').map((n:string)=>n[0]).join('').substring(0,2)}
                       </div>
-                      <div>
-                        <p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{e.nombre}</p>
-                        <p className="text-xs text-slate-400">{e.email}</p>
-                      </div>
+                      <div><p className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{e.nombre}</p><p className="text-xs text-slate-400">{e.email}</p></div>
                     </div>
                   </td>
                   <td className="table-cell">{e.departamento||'—'}</td>

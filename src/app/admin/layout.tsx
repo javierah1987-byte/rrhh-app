@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Empleado } from '@/lib/supabase'
-import { LayoutDashboard,Users,Clock,Calendar,CalendarDays,FileText,TrendingUp,Bell,LogOut,ChevronRight,Menu } from 'lucide-react'
+import { LayoutDashboard,Users,Clock,Calendar,CalendarDays,FileText,TrendingUp,Bell,LogOut,ChevronRight,Menu,FolderOpen } from 'lucide-react'
 
-const NAV = [{href:'/admin',label:'Dashboard',icon:LayoutDashboard},{href:'/admin/empleados',label:'Empleados',icon:Users},{href:'/admin/horarios',label:'Horarios',icon:Clock},{href:'/admin/vacaciones',label:'Vacaciones',icon:Calendar},{href:'/admin/bajas',label:'Bajas',icon:FileText},{href:'/admin/informes',label:'Informes',icon:TrendingUp},{href:'/admin/avisos',label:'Avisos',icon:Bell},{href:'/admin/calendario',label:'Calendario',icon:CalendarDays}]
+const NAV = [{href:'/admin',label:'Dashboard',icon:LayoutDashboard},{href:'/admin/empleados',label:'Empleados',icon:Users},{href:'/admin/horarios',label:'Horarios',icon:Clock},{href:'/admin/vacaciones',label:'Vacaciones',icon:Calendar},{href:'/admin/bajas',label:'Bajas',icon:FileText},{href:'/admin/informes',label:'Informes',icon:TrendingUp},{href:'/admin/avisos',label:'Avisos',icon:Bell},{href:'/admin/documentos',label:'Documentos',icon:FolderOpen},{href:'/admin/calendario',label:'Calendario',icon:CalendarDays}]
 
 const NexoLogo = () => (
   <svg width="22" height="22" viewBox="0 0 80 80" fill="none">
@@ -34,7 +34,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex items-center justify-center" style={{background:'linear-gradient(135deg,#EEF2FF,#F0FDF4)'}}>
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 rounded-xl animate-spin border-4 border-indigo-200 border-t-indigo-600"/>
-        <p className="text-sm text-slate-500">Cargando Nexo HRâ¦</p>
+        <p className="text-sm text-slate-500">Cargando Nexo HRÃ¢ÂÂ¦</p>
       </div>
     </div>
   )
@@ -77,7 +77,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
         <button onClick={async()=>{ await supabase.auth.signOut(); router.push('/login') }}
           className="nav-item nav-item-inactive w-full text-red-500 hover:bg-red-50 hover:text-red-600 mt-1">
-          <LogOut className="w-4 h-4"/><span>Cerrar sesiÃ³n</span>
+          <LogOut className="w-4 h-4"/><span>Cerrar sesiÃÂ³n</span>
         </button>
       </div>
     </div>

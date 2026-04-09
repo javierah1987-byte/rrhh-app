@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Empleado } from '@/lib/supabase'
-import { LayoutDashboard, Clock, Calendar, CalendarDays, FileText, User, CreditCard, LogOut, ChevronRight, Menu, Sun, Moon, MessageSquare, BellRing } from 'lucide-react'
+import { LayoutDashboard, Clock, Calendar, CalendarDays, FileText, FolderOpen, User, CreditCard, LogOut, ChevronRight, Menu, Sun, Moon, MessageSquare, BellRing } from 'lucide-react'
 
 const NAV = [
   { href: '/empleado', label: 'Inicio', icon: LayoutDashboard },

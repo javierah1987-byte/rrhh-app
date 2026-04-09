@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Empleado } from '@/lib/supabase'
-import { LayoutDashboard,Users,Clock,Calendar,CalendarDays,FileText,TrendingUp,Bell,FolderOpen,LogOut,ChevronRight,Menu } from 'lucide-react'
+import { LayoutDashboard,Users,Clock,Calendar,CalendarDays,FileText,TrendingUp,Bell,FolderOpen,CreditCard,LogOut,ChevronRight,Menu } from 'lucide-react'
 
 const NexoLogo = () => (
   <svg width="22" height="22" viewBox="0 0 80 80" fill="none">
@@ -30,7 +30,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     // Cargar contador de solicitudes pendientes
     supabase.from('solicitudes').select('id',{count:'exact'}).eq('estado','pendiente')
       .then(({ count }) => setPendientes(count || 0))
-    // Suscripción en tiempo real
+    // SuscripciÃ³n en tiempo real
     const ch = supabase.channel('solicitudes-admin')
       .on('postgres_changes',{event:'*',schema:'public',table:'solicitudes'},() => {
         supabase.from('solicitudes').select('id',{count:'exact'}).eq('estado','pendiente')
@@ -43,7 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen flex items-center justify-center" style={{background:'linear-gradient(135deg,#EEF2FF,#F0FDF4)'}}>
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 rounded-xl animate-spin border-4 border-indigo-200 border-t-indigo-600"/>
-        <p className="text-sm text-slate-500">Cargando Nexo HR…</p>
+        <p className="text-sm text-slate-500">Cargando Nexo HRâ¦</p>
       </div>
     </div>
   )
@@ -100,7 +100,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         <button onClick={async()=>{ await supabase.auth.signOut(); router.push('/login') }}
           className="nav-item nav-item-inactive w-full text-red-500 hover:bg-red-50 hover:text-red-600 mt-1">
-          <LogOut className="w-4 h-4"/><span>Cerrar sesión</span>
+          <LogOut className="w-4 h-4"/><span>Cerrar sesiÃ³n</span>
         </button>
       </div>
     </div>

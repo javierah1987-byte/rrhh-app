@@ -1,87 +1,165 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { iniciales, minutosAHHMM, MESES, calcularMinutosTrabajados } from '@/lib/utils'
-import { Download, BarChart3 } from 'lucide-react'
+import { Download, FileSpreadsheet, FileText, TrendingUp, Users, Clock, Calendar } from 'lucide-react'
+
+type Emp = { id:string; nombre:string; departamento:string; puesto:string; estado:string; fecha_alta:string; jornada_horas:number; tipo_contrato:string; avatar_color:string }
+type Nomina = { empleado_id:string; mes:number; anio:number; salario_base:number; complementos:number; liquido:number }
+type Sol = { empleado_id:string; tipo:string; fecha_inicio:string; fecha_fin:string; estado:string }
+type Fichaje = { empleado_id:string; tipo:string; fecha:string; timestamp:string }
+
+const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const fmt = (n:number) => n.toLocaleString('es-ES',{style:'currency',currency:'EUR'})
 
 export default function InformesPage() {
-  const [empleados, setEmpleados] = useState<any[]>([])
-  const [resumen, setResumen] = useState<any[]>([])
-  const [mes, setMes] = useState(new Date().getMonth() + 1)
-  const [anio, setAnio] = useState(new Date().getFullYear())
+  const [empleados, setEmpleados] = useState<Emp[]>([])
+  const [nominas, setNominas] = useState<Nomina[]>([])
+  const [solicitudes, setSolicitudes] = useState<Sol[]>([])
+  const [fichajes, setFichajes] = useState<Fichaje[]>([])
   const [loading, setLoading] = useState(true)
+  const [anio, setAnio] = useState(new Date().getFullYear())
 
-  const cargar = useCallback(async () => {
-    setLoading(true)
-    const { data: emps } = await supabase.from('empleados').select('*').neq('rol','admin').order('nombre')
-    if (!emps) { setLoading(false); return }
-    const desde = `${anio}-${String(mes).padStart(2,'0')}-01`
-    const hasta = `${anio}-${String(mes).padStart(2,'0')}-31`
-    const { data: fichs } = await supabase.from('fichajes').select('*').gte('fecha',desde).lte('fecha',hasta)
-    const { data: noms } = await supabase.from('nominas').select('*').eq('mes',mes).eq('anio',anio)
-    const { data: sols } = await supabase.from('solicitudes').select('*').eq('estado','aprobada').gte('fecha_inicio',desde).lte('fecha_inicio',hasta)
-    const data = emps.map(emp => {
-      const empFichs = (fichs||[]).filter(f=>f.empleado_id===emp.id)
-      const empFichsByDay = empFichs.reduce((acc: Record<string,any[]>,f)=>{ (acc[f.fecha]||(acc[f.fecha]=[])).push(f); return acc },{})
-      const diasTrabajados = Object.keys(empFichsByDay).length
-      const totalMin = Object.values(empFichsByDay).reduce((acc,fs)=>acc+calcularMinutosTrabajados(fs),0)
-      const nomina = (noms||[]).find(n=>n.empleado_id===emp.id)
-      const vacSols = (sols||[]).filter(s=>s.empleado_id===emp.id&&s.tipo==='vacaciones')
-      return { emp, diasTrabajados, totalMin, nomina, vacaciones: vacSols.length }
+  useEffect(() => {
+    Promise.all([
+      supabase.from('empleados').select('*').order('nombre'),
+      supabase.from('nominas').select('*'),
+      supabase.from('solicitudes').select('*'),
+      supabase.from('fichajes').select('*').order('fecha',{ascending:false}).limit(500),
+    ]).then(([{data:e},{data:n},{data:s},{data:f}]) => {
+      setEmpleados(e||[]); setNominas(n||[]); setSolicitudes(s||[]); setFichajes(f||[]); setLoading(false)
     })
-    setEmpleados(emps)
-    setResumen(data)
-    setLoading(false)
-  }, [mes, anio])
+  }, [])
 
-  useEffect(() => { cargar() }, [cargar])
+  function getNombre(id:string) { return empleados.find(e=>e.id===id)?.nombre||id }
 
-  async function exportarExcel() {
-    const { utils, writeFileXLSX } = await import('xlsx')
-    const rows = [['Empleado','Departamento','Dias trabajados','Horas totales','Salario base','IRPF','SS','Liquido','Vacaciones']]
-    for (const r of resumen) {
-      rows.push([r.emp.nombre,r.emp.departamento,r.diasTrabajados,minutosAHHMM(r.totalMin),r.nomina?.salario_base||0,r.nomina?.irpf_pct||0,r.nomina?.ss_pct||0,r.nomina?.liquido||0,r.vacaciones])
+  // Estadísticas
+  const nominasAnio = nominas.filter(n=>n.anio===anio)
+  const costeTotalAnio = nominasAnio.reduce((s,n)=>s+(n.salario_base+n.complementos),0)
+  const liquidoTotalAnio = nominasAnio.reduce((s,n)=>s+n.liquido,0)
+  const vacacionesAprobadas = solicitudes.filter(s=>s.tipo==='vacaciones'&&s.estado==='aprobada')
+  const diasVacaciones = vacacionesAprobadas.reduce((s,sol)=>{
+    const d=(new Date(sol.fecha_fin).getTime()-new Date(sol.fecha_inicio).getTime())/86400000+1
+    return s+d
+  },0)
+
+  async function exportExcel(tipo: string) {
+    const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs' as any)
+    let ws: any, titulo = ''
+
+    if (tipo==='empleados') {
+      titulo = 'Empleados'
+      const rows = [['Nombre','Email','Departamento','Puesto','Contrato','Jornada','Estado','Alta'],
+        ...empleados.map(e=>[e.nombre,'',e.departamento,e.puesto,e.tipo_contrato,e.jornada_horas,e.estado,e.fecha_alta])]
+      ws = XLSX.utils.aoa_to_sheet(rows)
+    } else if (tipo==='nominas') {
+      titulo = 'Nominas_'+anio
+      const rows = [['Empleado','Mes','Año','Salario base','Complementos','IRPF%','SS%','Líquido'],
+        ...nominasAnio.map(n=>[getNombre(n.empleado_id),MESES[n.mes-1],n.anio,n.salario_base,n.complementos,'',n.liquido])]
+      ws = XLSX.utils.aoa_to_sheet(rows)
+    } else if (tipo==='solicitudes') {
+      titulo = 'Solicitudes'
+      const rows = [['Empleado','Tipo','Inicio','Fin','Estado'],
+        ...solicitudes.map(s=>[getNombre(s.empleado_id),s.tipo,s.fecha_inicio,s.fecha_fin,s.estado])]
+      ws = XLSX.utils.aoa_to_sheet(rows)
+    } else {
+      titulo = 'Fichajes'
+      const rows = [['Empleado','Tipo','Fecha','Hora'],
+        ...fichajes.map(f=>[getNombre(f.empleado_id),f.tipo,f.fecha,new Date(f.timestamp).toLocaleTimeString('es-ES')])]
+      ws = XLSX.utils.aoa_to_sheet(rows)
     }
-    const ws = utils.aoa_to_sheet(rows)
-    const wb = utils.book_new()
-    utils.book_append_sheet(wb, ws, 'Informe')
-    writeFileXLSX(wb, `informe_${MESES[mes]}_${anio}.xlsx`)
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, titulo)
+    XLSX.writeFile(wb, `NexoHR_${titulo}_${new Date().toISOString().slice(0,10)}.xlsx`)
   }
 
-  const totales = resumen.reduce((acc,r)=>({ dias:acc.dias+r.diasTrabajados, min:acc.min+r.totalMin, liquido:acc.liquido+(r.nomina?.liquido||0) }),{dias:0,min:0,liquido:0})
+  function exportPDF(tipo: string) {
+    const w = window.open('','_blank')!
+    let html = '<html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;padding:20px}h1{color:#4F46E5}table{border-collapse:collapse;width:100%}th{background:#EEF2FF;color:#4F46E5;padding:8px;text-align:left;font-size:12px}td{padding:8px;border-bottom:1px solid #E2E8F0;font-size:12px}.footer{margin-top:20px;font-size:10px;color:#94A3B8}</style></head><body>'
+    html += `<h1>Nexo HR — ${tipo.charAt(0).toUpperCase()+tipo.slice(1)}</h1>`
+    html += `<p style="color:#64748B;font-size:12px">Generado: ${new Date().toLocaleDateString('es-ES')}</p><table>`
+    
+    if (tipo==='empleados') {
+      html += '<tr><th>Nombre</th><th>Departamento</th><th>Puesto</th><th>Contrato</th><th>Estado</th></tr>'
+      empleados.forEach(e=>{ html+=`<tr><td>${e.nombre}</td><td>${e.departamento}</td><td>${e.puesto}</td><td>${e.tipo_contrato?.replace(/_/g,' ')}</td><td>${e.estado}</td></tr>` })
+    } else if (tipo==='nominas') {
+      html += '<tr><th>Empleado</th><th>Período</th><th>Bruto</th><th>Neto</th></tr>'
+      nominasAnio.forEach(n=>{ html+=`<tr><td>${getNombre(n.empleado_id)}</td><td>${MESES[n.mes-1]} ${n.anio}</td><td>${fmt(n.salario_base+n.complementos)}</td><td>${fmt(n.liquido)}</td></tr>` })
+    } else {
+      html += '<tr><th>Empleado</th><th>Tipo</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr>'
+      solicitudes.forEach(s=>{ html+=`<tr><td>${getNombre(s.empleado_id)}</td><td>${s.tipo.replace(/_/g,' ')}</td><td>${s.fecha_inicio}</td><td>${s.fecha_fin}</td><td>${s.estado}</td></tr>` })
+    }
+    html += `</table><p class="footer">Nexo HR © ${new Date().getFullYear()} — ACME Corp</p></body></html>`
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    setTimeout(()=>w.print(),500)
+  }
+
+  const INFORMES_DISP = [
+    { id:'empleados', titulo:'Empleados', desc:'Lista completa del equipo con sus datos', icon:Users, color:'text-indigo-600', bg:'bg-indigo-50' },
+    { id:'nominas', titulo:`Nóminas ${anio}`, desc:'Detalle de todas las nóminas del año seleccionado', icon:TrendingUp, color:'text-emerald-600', bg:'bg-emerald-50' },
+    { id:'solicitudes', titulo:'Solicitudes', desc:'Vacaciones, permisos y solicitudes del equipo', icon:Calendar, color:'text-amber-600', bg:'bg-amber-50' },
+    { id:'fichajes', titulo:'Fichajes', desc:'Registro de entradas y salidas recientes', icon:Clock, color:'text-violet-600', bg:'bg-violet-50' },
+  ]
+
+  if (loading) return <div className="flex justify-center py-16"><div className="w-8 h-8 rounded-full animate-spin border-4 border-indigo-200 border-t-indigo-600"/></div>
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div><h1 className="text-xl font-bold text-gray-900">Informes y nominas</h1><p className="text-sm text-gray-500 mt-0.5">{MESES[mes]} {anio}</p></div>
-        <div className="flex items-center gap-3">
-          <select value={mes} onChange={e=>setMes(Number(e.target.value))} className="input w-36">{MESES.slice(1).map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}</select>
-          <select value={anio} onChange={e=>setAnio(Number(e.target.value))} className="input w-24">{[2024,2025,2026].map(y=><option key={y}>{y}</option>)}</select>
-          <button onClick={exportarExcel} className="btn-primary flex items-center gap-1.5"><Download className="w-4 h-4" />Exportar</button>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Informes</h1>
+          <p className="text-sm text-slate-500 mt-1">Exporta los datos del equipo en Excel o PDF</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-slate-500">Año:</label>
+          <select value={anio} onChange={e=>setAnio(+e.target.value)} className="input w-24">
+            {[2023,2024,2025,2026].map(a=><option key={a} value={a}>{a}</option>)}
+          </select>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        {[{label:'Dias totales trabajados',value:totales.dias+' dias',icon:BarChart3},{label:'Horas trabajadas',value:minutosAHHMM(totales.min)},{label:'Masa salarial neta',value:totales.liquido.toFixed(0)+' €'}].map((k,i)=>(<div key={i} className="card p-5 bg-indigo-50"><p className="text-xs text-gray-500">{k.label}</p><p className="text-2xl font-bold text-indigo-700 mt-1">{k.value}</p></div>))}
+
+      {/* Resumen rápido */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        {[
+          { label:'Empleados activos', value:empleados.filter(e=>e.estado==='activo').length, color:'text-indigo-600' },
+          { label:'Coste bruto '+anio, value:fmt(costeTotalAnio), color:'text-slate-900' },
+          { label:'Total líquido '+anio, value:fmt(liquidoTotalAnio), color:'text-emerald-600' },
+          { label:'Días vacaciones aprobados', value:diasVacaciones, color:'text-amber-600' },
+        ].map((s,i)=>(
+          <div key={i} className="stat-card">
+            <span className={`text-xl font-bold ${s.color}`}>{s.value}</span>
+            <span className="stat-label">{s.label}</span>
+          </div>
+        ))}
       </div>
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-gray-100 bg-gray-50">{['Empleado','Depto','Dias','Horas','S. Base','IRPF','S.S.','Liquido'].map(h=><th key={h} className="text-left px-4 py-3 text-xs font-medium text-gray-500">{h}</th>)}</tr></thead>
-            <tbody>
-              {loading?Array.from({length:4}).map((_,i)=><tr key={i} className="border-b border-gray-50">{Array.from({length:8}).map((_,j)=><td key={j} className="px-4 py-3"><div className="skeleton h-4 w-16"/></td>)}</tr>)
-              :resumen.map(({emp,diasTrabajados,totalMin,nomina})=>(<tr key={emp.id} className="border-b border-gray-50 hover:bg-gray-50">
-                <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0" style={{backgroundColor:emp.avatar_color}}>{iniciales(emp.nombre)}</div><span className="font-medium text-gray-900">{emp.nombre}</span></div></td>
-                <td className="px-4 py-3 text-gray-600">{emp.departamento}</td>
-                <td className="px-4 py-3 text-gray-900 font-medium">{diasTrabajados}</td>
-                <td className="px-4 py-3 font-mono text-gray-900">{minutosAHHMM(totalMin)}</td>
-                <td className="px-4 py-3 text-gray-600">{nomina?.salario_base?.toFixed(0)||'—'} €</td>
-                <td className="px-4 py-3 text-gray-600">{nomina?nomina.irpf_pct+'%':'—'}</td>
-                <td className="px-4 py-3 text-gray-600">{nomina?nomina.ss_pct+'%':'—'}</td>
-                <td className="px-4 py-3 font-bold text-indigo-700">{nomina?.liquido?.toFixed(0)||'—'} €</td>
-              </tr>))}
-            </tbody>
-          </table>
-        </div>
+
+      {/* Informes disponibles */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {INFORMES_DISP.map(inf=>(
+          <div key={inf.id} className="card p-6">
+            <div className="flex items-start gap-4">
+              <div className={`w-12 h-12 rounded-2xl ${inf.bg} flex items-center justify-center flex-shrink-0`}>
+                <inf.icon className={`w-6 h-6 ${inf.color}`}/>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-slate-900">{inf.titulo}</h3>
+                <p className="text-sm text-slate-500 mt-0.5 mb-4">{inf.desc}</p>
+                <div className="flex gap-2">
+                  <button onClick={()=>exportExcel(inf.id)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium text-xs transition-colors">
+                    <FileSpreadsheet className="w-3.5 h-3.5"/>Excel
+                  </button>
+                  <button onClick={()=>exportPDF(inf.id)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 text-red-700 hover:bg-red-100 font-medium text-xs transition-colors">
+                    <FileText className="w-3.5 h-3.5"/>PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )

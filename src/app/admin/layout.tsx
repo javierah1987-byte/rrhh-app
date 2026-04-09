@@ -4,9 +4,12 @@ import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CommandPalette } from '@/components/CommandPalette'
 import { ToastProvider } from '@/components/ToastProvider'
-import { LayoutDashboard,Users,CalendarDays,FileText,Clock,DollarSign,BarChart2,Bell,MessageSquare,Calendar,Briefcase,ClipboardList,Star,Gift,LogOut,ChevronDown,Sun,Moon,Search,Menu,X } from 'lucide-react'
+import { LayoutDashboard,Users,CalendarDays,FileText,Clock,DollarSign,BarChart2,Bell,MessageSquare,Calendar,Briefcase,ClipboardList,Star,Gift,LogOut,ChevronDown,Sun,Moon,Search,Menu,X,LucideIcon } from 'lucide-react'
 
-const GROUPS = [
+type NavItem = { icon: LucideIcon; label: string; href: string; badge?: boolean }
+type NavGroup = { label: string|null; items: NavItem[] }
+
+const GROUPS: NavGroup[] = [
   { label:null, items:[{icon:LayoutDashboard,label:'Dashboard',href:'/admin'}] },
   { label:'Equipo', items:[{icon:Users,label:'Empleados',href:'/admin/empleados'},{icon:Clock,label:'Control horas',href:'/admin/control-horas'},{icon:ClipboardList,label:'Horarios',href:'/admin/horarios'},{icon:Star,label:'Evaluaciones',href:'/admin/evaluaciones'}] },
   { label:'Solicitudes', items:[{icon:CalendarDays,label:'Vacaciones',href:'/admin/vacaciones',badge:true},{icon:FileText,label:'Bajas',href:'/admin/bajas'},{icon:Briefcase,label:'Petición docs',href:'/admin/solicitudes-documentos'}] },
@@ -15,7 +18,7 @@ const GROUPS = [
   { label:'Config', items:[{icon:Calendar,label:'Calendario',href:'/admin/calendario'},{icon:CalendarDays,label:'Festivos',href:'/admin/festivos'}] },
 ]
 
-function NavItem({item,active,badge}:any){
+function NavItemBtn({item,active,badge}:{item:NavItem;active:boolean;badge:boolean}){
   const router=useRouter()
   return(
     <button onClick={()=>router.push(item.href)} className={`nav-item w-full ${active?'nav-item-active':'nav-item-inactive'}`}>
@@ -26,7 +29,7 @@ function NavItem({item,active,badge}:any){
   )
 }
 
-function Sidebar({onClose,pendientes}:{onClose?:()=>void,pendientes:number}){
+function Sidebar({onClose,pendientes}:{onClose?:()=>void;pendientes:number}){
   const pathname=usePathname()
   const router=useRouter()
   const [dark,setDark]=useState(false)
@@ -63,7 +66,9 @@ function Sidebar({onClose,pendientes}:{onClose?:()=>void,pendientes:number}){
               </button>
             )}
             {openG[g.label!]!==false&&g.items.map(item=>(
-              <NavItem key={item.href} item={item} active={pathname===item.href||(item.href!=='/admin'&&pathname.startsWith(item.href))} badge={item.badge&&pendientes>0}/>
+              <NavItemBtn key={item.href} item={item}
+                active={pathname===item.href||(item.href!=='/admin'&&pathname.startsWith(item.href))}
+                badge={!!(item.badge&&pendientes>0)}/>
             ))}
           </div>
         ))}

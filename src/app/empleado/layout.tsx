@@ -3,19 +3,11 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import type { Empleado } from '@/lib/supabase'
-import { LayoutDashboard, Clock, Calendar, CalendarDays, FileText, FolderOpen, User, CreditCard, LogOut, ChevronRight, Menu, Sun, Moon, MessageSquare, BellRing } from 'lucide-react'
-
-const NAV = [
-  { href: '/empleado', label: 'Inicio', icon: LayoutDashboard },
-  { href: '/empleado/fichaje', label: 'Fichaje', icon: Clock },
-  { href: '/empleado/solicitudes', label: 'Solicitudes', icon: Calendar },
-  { href: '/empleado/bajas', label: 'Mis bajas', icon: FileText },{ href: '/empleado/solicitar-documentos', label: 'Pedir documentos', icon: FolderOpen },
-  { href: '/empleado/nominas', label: 'Nóminas', icon: CreditCard },
-  { href: '/empleado/calendario', label: 'Calendario', icon: CalendarDays },
-  { href: '/empleado/mensajes', label: 'Mensajes', icon: MessageSquare },
-  { href: '/empleado/notificaciones', label: 'Notificaciones', icon: BellRing },
-  { href: '/empleado/perfil', label: 'Mi perfil', icon: User },
-]
+import {
+  LayoutDashboard, Clock, Calendar, FileText, FolderOpen,
+  CreditCard, CalendarDays, MessageSquare, BellRing,
+  User, LogOut, ChevronRight, ChevronDown, Menu, Sun, Moon
+} from 'lucide-react'
 
 const NexoLogo = () => (
   <svg width="22" height="22" viewBox="0 0 80 80" fill="none">
@@ -26,6 +18,9 @@ const NexoLogo = () => (
   </svg>
 )
 
+type NavItem = { href: string; label: string; icon: any; badge?: number }
+type NavGroup = { key: string; label: string; icon: any; items: NavItem[] }
+
 export default function EmpleadoLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -33,41 +28,64 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
   const [open, setOpen] = useState(false)
   const [dark, setDark] = useState(false)
   const [notifCount, setNotifCount] = useState(0)
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
+
+  function getGroupForPath(p: string): string | null {
+    if (['/empleado/solicitudes','/empleado/bajas','/empleado/solicitar-documentos'].some(h=>p.startsWith(h))) return 'solicitudes'
+    if (['/empleado/nominas','/empleado/calendario'].some(h=>p.startsWith(h))) return 'docs'
+    if (['/empleado/mensajes','/empleado/notificaciones'].some(h=>p.startsWith(h))) return 'comunicacion'
+    return null
+  }
 
   useEffect(() => {
     const saved = localStorage.getItem('nexohr-dark')
-    if (saved === 'true') { setDark(true); document.documentElement.classList.add('dark') }
+    if (saved==='true') { setDark(true); document.documentElement.classList.add('dark') }
   }, [])
-
-  function toggleDark() {
-    const next = !dark
-    setDark(next)
-    if (next) { document.documentElement.classList.add('dark'); localStorage.setItem('nexohr-dark', 'true') }
-    else { document.documentElement.classList.remove('dark'); localStorage.setItem('nexohr-dark', 'false') }
-  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) { router.push('/login'); return }
-      supabase.from('empleados').select('*').eq('user_id', data.user.id).single()
+      supabase.from('empleados').select('*').eq('user_id',data.user.id).single()
         .then(({ data: emp }) => {
           if (!emp) { router.push('/login'); return }
           setEmpleado(emp)
-          supabase.from('notificaciones').select('id', { count: 'exact' }).eq('empleado_id', emp.id).eq('leida', false)
-            .then(({ count }) => setNotifCount(count || 0))
+          supabase.from('notificaciones').select('id',{count:'exact'}).eq('empleado_id',emp.id).eq('leida',false)
+            .then(({ count }) => setNotifCount(count||0))
           const ch = supabase.channel('notif-emp-nav')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notificaciones' }, () => {
-              setNotifCount(c => c + 1)
-            }).subscribe()
+            .on('postgres_changes',{event:'INSERT',schema:'public',table:'notificaciones'},()=>{setNotifCount(c=>c+1)}).subscribe()
           return () => { supabase.removeChannel(ch) }
         })
     })
   }, [router])
 
+  useEffect(() => { const g=getGroupForPath(pathname); if(g) setOpenGroup(g) }, [pathname])
+
+  function toggleDark() {
+    const next=!dark; setDark(next)
+    if(next){document.documentElement.classList.add('dark');localStorage.setItem('nexohr-dark','true')}
+    else{document.documentElement.classList.remove('dark');localStorage.setItem('nexohr-dark','false')}
+  }
+
+  const GROUPS: NavGroup[] = [
+    { key:'solicitudes', label:'Mis solicitudes', icon:Calendar, items:[
+      {href:'/empleado/solicitudes',label:'Vacaciones y permisos',icon:Calendar},
+      {href:'/empleado/bajas',label:'Mis bajas',icon:FileText},
+      {href:'/empleado/solicitar-documentos',label:'Pedir documentos',icon:FolderOpen},
+    ]},
+    { key:'docs', label:'Mis documentos', icon:CreditCard, items:[
+      {href:'/empleado/nominas',label:'Nóminas y docs',icon:CreditCard},
+      {href:'/empleado/calendario',label:'Calendario',icon:CalendarDays},
+    ]},
+    { key:'comunicacion', label:'Comunicación', icon:MessageSquare, items:[
+      {href:'/empleado/mensajes',label:'Mensajes',icon:MessageSquare},
+      {href:'/empleado/notificaciones',label:'Notificaciones',icon:BellRing,badge:notifCount},
+    ]},
+  ]
+
   if (!empleado) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#EEF2FF,#F0FDF4)' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{background:'linear-gradient(135deg,#EEF2FF,#F0FDF4)'}}>
       <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 rounded-xl animate-spin border-4 border-indigo-200 border-t-indigo-600" />
+        <div className="w-10 h-10 rounded-xl animate-spin border-4 border-indigo-200 border-t-indigo-600"/>
         <p className="text-sm text-slate-500">Cargando Nexo HR…</p>
       </div>
     </div>
@@ -75,70 +93,109 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
 
   const Sidebar = () => (
     <div className="flex flex-col h-full bg-white dark:bg-slate-800">
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-slate-100 dark:border-slate-700">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg,#4F46E5,#10B981)' }}>
-          <NexoLogo />
+      <div className="flex items-center gap-3 px-4 py-4 border-b border-slate-100 dark:border-slate-700">
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:'linear-gradient(135deg,#4F46E5,#10B981)'}}>
+          <NexoLogo/>
         </div>
         <div className="flex-1">
           <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">Nexo HR</p>
           <p className="text-xs text-slate-500 dark:text-slate-400">Portal empleado</p>
         </div>
-        <button onClick={toggleDark} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-          {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-400" />}
+        <button onClick={toggleDark} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+          {dark?<Sun className="w-4 h-4 text-amber-400"/>:<Moon className="w-4 h-4 text-slate-400"/>}
         </button>
       </div>
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href
-          const badge = href === '/empleado/notificaciones' ? notifCount : 0
+
+      <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
+        {[{href:'/empleado',label:'Inicio',icon:LayoutDashboard},{href:'/empleado/fichaje',label:'Fichaje',icon:Clock}].map(item=>(
+          <button key={item.href} onClick={()=>{router.push(item.href);setOpen(false)}}
+            className={`nav-item w-full ${pathname===item.href?'nav-item-active':'nav-item-inactive'}`}>
+            <item.icon className="w-4 h-4 flex-shrink-0"/>
+            <span className="flex-1 text-left">{item.label}</span>
+            {pathname===item.href&&<ChevronRight className="w-3 h-3 opacity-40"/>}
+          </button>
+        ))}
+
+        {GROUPS.map(group=>{
+          const isOpen=openGroup===group.key
+          const hasActive=group.items.some(item=>pathname.startsWith(item.href))
+          const Icon=group.icon
+          const groupBadge=group.items.reduce((s,i)=>s+(i.badge||0),0)
           return (
-            <button key={href} onClick={() => { router.push(href); setOpen(false) }}
-              className={`nav-item w-full ${active ? 'nav-item-active' : 'nav-item-inactive'}`}>
-              <Icon className="w-4 h-4 flex-shrink-0" />
-              <span className="flex-1 text-left">{label}</span>
-              {badge > 0 && <span className="bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">{badge}</span>}
-              {active && badge === 0 && <ChevronRight className="w-3 h-3 opacity-40" />}
-            </button>
+            <div key={group.key}>
+              <button onClick={()=>setOpenGroup(isOpen?null:group.key)}
+                className={`nav-item w-full ${hasActive?'nav-item-active':'nav-item-inactive'}`}>
+                <Icon className="w-4 h-4 flex-shrink-0"/>
+                <span className="flex-1 text-left text-sm">{group.label}</span>
+                {groupBadge>0&&!isOpen&&<span className="bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full mr-1">{groupBadge}</span>}
+                {isOpen?<ChevronDown className="w-3.5 h-3.5 opacity-50 flex-shrink-0"/>:<ChevronRight className="w-3.5 h-3.5 opacity-30 flex-shrink-0"/>}
+              </button>
+              {isOpen&&(
+                <div className="ml-3 mt-0.5 space-y-0.5 pl-3 border-l-2 border-slate-100 dark:border-slate-700">
+                  {group.items.map(item=>{
+                    const active=pathname.startsWith(item.href)
+                    const ItemIcon=item.icon
+                    return (
+                      <button key={item.href} onClick={()=>{router.push(item.href);setOpen(false)}}
+                        className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl text-xs font-medium transition-all
+                          ${active?'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300':'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100'}`}>
+                        <ItemIcon className="w-3.5 h-3.5 flex-shrink-0"/>
+                        <span className="flex-1 text-left">{item.label}</span>
+                        {(item.badge||0)>0&&<span className="bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{item.badge}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           )
         })}
+
+        <button onClick={()=>{router.push('/empleado/perfil');setOpen(false)}}
+          className={`nav-item w-full ${pathname==='/empleado/perfil'?'nav-item-active':'nav-item-inactive'}`}>
+          <User className="w-4 h-4 flex-shrink-0"/>
+          <span className="flex-1 text-left">Mi perfil</span>
+          {pathname==='/empleado/perfil'&&<ChevronRight className="w-3 h-3 opacity-40"/>}
+        </button>
       </nav>
-      <div className="px-3 py-4 border-t border-slate-100 dark:border-slate-700">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-xl mb-1">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-            style={{ backgroundColor: empleado.avatar_color || '#10B981' }}>
-            {empleado.nombre.split(' ').map((n: string) => n[0]).join('').substring(0, 2)}
+
+      <div className="px-3 py-3 border-t border-slate-100 dark:border-slate-700">
+        <div className="flex items-center gap-2.5 px-2 py-2 rounded-xl mb-1">
+          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+            style={{backgroundColor:empleado.avatar_color||'#10B981'}}>
+            {empleado.nombre.split(' ').map((n:string)=>n[0]).join('').substring(0,2)}
           </div>
           <div className="min-w-0">
             <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{empleado.nombre}</p>
-            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium capitalize">{empleado.puesto}</p>
+            <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium capitalize">{empleado.puesto}</p>
           </div>
         </div>
-        <button onClick={async () => { await supabase.auth.signOut(); router.push('/login') }}
-          className="nav-item nav-item-inactive w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 mt-1">
-          <LogOut className="w-4 h-4" /><span>Cerrar sesión</span>
+        <button onClick={async()=>{await supabase.auth.signOut();router.push('/login')}}
+          className="nav-item nav-item-inactive w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 text-xs py-1.5">
+          <LogOut className="w-3.5 h-3.5"/><span>Cerrar sesión</span>
         </button>
       </div>
     </div>
   )
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
-      <aside className="hidden lg:flex w-56 flex-col border-r border-slate-200 dark:border-slate-700 flex-shrink-0"><Sidebar /></aside>
-      {open && (
+    <div className="flex h-screen overflow-hidden" style={{backgroundColor:'var(--bg)'}}>
+      <aside className="hidden lg:flex w-52 flex-col border-r border-slate-200 dark:border-slate-700 flex-shrink-0"><Sidebar/></aside>
+      {open&&(
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="absolute left-0 top-0 h-full w-56 shadow-xl"><Sidebar /></aside>
+          <div className="absolute inset-0 bg-black/40" onClick={()=>setOpen(false)}/>
+          <aside className="absolute left-0 top-0 h-full w-52 shadow-xl"><Sidebar/></aside>
         </div>
       )}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-          <button onClick={() => setOpen(true)} className="relative p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-            <Menu className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-            {notifCount > 0 && <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{notifCount}</span>}
+          <button onClick={()=>setOpen(true)} className="relative p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+            <Menu className="w-5 h-5 text-slate-600 dark:text-slate-300"/>
+            {notifCount>0&&<span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{notifCount}</span>}
           </button>
           <span className="font-bold text-slate-900 dark:text-slate-100 flex-1">Nexo HR</span>
           <button onClick={toggleDark} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-            {dark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-400" />}
+            {dark?<Sun className="w-4 h-4 text-amber-400"/>:<Moon className="w-4 h-4 text-slate-400"/>}
           </button>
         </div>
         <main className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-900">{children}</main>

@@ -34,7 +34,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex items-center justify-center" style={{background:'linear-gradient(135deg,#EEF2FF,#F0FDF4)'}}>
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 rounded-xl animate-spin border-4 border-indigo-200 border-t-indigo-600"/>
-        <p className="text-sm text-slate-500">Cargando Nexo HRÃ¢ÂÂ¦</p>
+        <p className="text-sm text-slate-500">Cargando Nexo HRÃÂ¢ÃÂÃÂ¦</p>
       </div>
     </div>
   )
@@ -77,7 +77,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
         <button onClick={async()=>{ await supabase.auth.signOut(); router.push('/login') }}
           className="nav-item nav-item-inactive w-full text-red-500 hover:bg-red-50 hover:text-red-600 mt-1">
-          <LogOut className="w-4 h-4"/><span>Cerrar sesiÃÂ³n</span>
+          <LogOut className="w-4 h-4"/><span>Cerrar sesiÃÂÃÂ³n</span>
         </button>
       </div>
     </div>

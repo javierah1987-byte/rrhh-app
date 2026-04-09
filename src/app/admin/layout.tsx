@@ -6,7 +6,7 @@ import type { Empleado } from '@/lib/supabase'
 import {
   LayoutDashboard,Users,Clock,Calendar,CalendarDays,FileText,
   TrendingUp,Bell,FolderOpen,CreditCard,LogOut,ChevronRight,
-  Menu,Sun,Moon,Search,X
+  Menu,Sun,Moon,Search,X,BarChart2,Award
 } from 'lucide-react'
 
 const NexoLogo = () => (
@@ -60,7 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => { supabase.removeChannel(ch) }
   }, [router])
 
-  // Búsqueda global
+  // BÃºsqueda global
   useEffect(() => {
     if (!query.trim()) { setResults([]); return }
     const timer = setTimeout(async () => {
@@ -72,9 +72,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         supabase.from('avisos').select('id,titulo').ilike('titulo', `%${query}%`).limit(3),
       ])
       const r: SearchResult[] = [
-        ...(emps||[]).map((e:any) => ({ type:'Empleado', label:e.nombre, sub:`${e.puesto} · ${e.departamento}`, href:`/admin/empleados/${e.id}` })),
-        ...(avs||[]).map((a:any) => ({ type:'Aviso', label:a.titulo, sub:'Comunicación interna', href:'/admin/avisos' })),
-        ...(sols||[]).map((s:any) => ({ type:'Solicitud', label:(s.empleados as any)?.nombre||'—', sub:`${s.tipo.replace(/_/g,' ')} · ${s.estado}`, href:'/admin/vacaciones' })),
+        ...(emps||[]).map((e:any) => ({ type:'Empleado', label:e.nombre, sub:`${e.puesto} Â· ${e.departamento}`, href:`/admin/empleados/${e.id}` })),
+        ...(avs||[]).map((a:any) => ({ type:'Aviso', label:a.titulo, sub:'ComunicaciÃ³n interna', href:'/admin/avisos' })),
+        ...(sols||[]).map((s:any) => ({ type:'Solicitud', label:(s.empleados as any)?.nombre||'â', sub:`${s.tipo.replace(/_/g,' ')} Â· ${s.estado}`, href:'/admin/vacaciones' })),
       ]
       setResults(r)
       setSearching(false)
@@ -82,7 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => clearTimeout(timer)
   }, [query])
 
-  // Cerrar búsqueda al click fuera
+  // Cerrar bÃºsqueda al click fuera
   useEffect(() => {
     function handle(e: MouseEvent) { if (searchRef.current && !searchRef.current.contains(e.target as Node)) setQuery('') }
     document.addEventListener('mousedown', handle)
@@ -95,7 +95,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href:'/admin/horarios', label:'Horarios', icon:Clock, badge:0 },
     { href:'/admin/vacaciones', label:'Solicitudes', icon:Calendar, badge:pendientes },
     { href:'/admin/bajas', label:'Bajas', icon:FileText, badge:0 },
-    { href:'/admin/nominas', label:'Nóminas', icon:CreditCard, badge:0 },
+    { href:'/admin/nominas', label:'NÃ³minas', icon:CreditCard, badge:0 },
     { href:'/admin/informes', label:'Informes', icon:TrendingUp, badge:0 },
     { href:'/admin/avisos', label:'Avisos', icon:Bell, badge:0 },
     { href:'/admin/documentos', label:'Documentos', icon:FolderOpen, badge:0 },
@@ -106,7 +106,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen flex items-center justify-center" style={{background:'linear-gradient(135deg,#EEF2FF,#F0FDF4)'}}>
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 rounded-xl animate-spin border-4 border-indigo-200 border-t-indigo-600"/>
-        <p className="text-sm text-slate-500">Cargando Nexo HR…</p>
+        <p className="text-sm text-slate-500">Cargando Nexo HRâ¦</p>
       </div>
     </div>
   )
@@ -127,13 +127,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </button>
       </div>
 
-      {/* Búsqueda */}
+      {/* BÃºsqueda */}
       <div className="px-3 pt-3 pb-1" ref={searchRef}>
         <div className="relative">
           <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400"/>
           <input value={query} onChange={e=>setQuery(e.target.value)}
             className="input pl-8 pr-8 py-2 text-xs"
-            placeholder="Buscar empleados, avisos…"/>
+            placeholder="Buscar empleados, avisosâ¦"/>
           {query && <button onClick={()=>setQuery('')} className="absolute right-2 top-2.5"><X className="w-3.5 h-3.5 text-slate-400"/></button>}
         </div>
         {results.length > 0 && (
@@ -185,7 +185,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         <button onClick={async()=>{ await supabase.auth.signOut(); router.push('/login') }}
           className="nav-item nav-item-inactive w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 mt-1">
-          <LogOut className="w-4 h-4"/><span>Cerrar sesión</span>
+          <LogOut className="w-4 h-4"/><span>Cerrar sesiÃ³n</span>
         </button>
       </div>
     </div>

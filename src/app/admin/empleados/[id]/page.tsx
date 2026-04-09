@@ -2,17 +2,17 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Edit2, Save, X, User, Mail, Building2, Briefcase, Calendar, CreditCard } from 'lucide-react'
+import { ArrowLeft, Edit2, Save, X, User, Mail, Building2, Briefcase, Calendar, CreditCard, Clock, CheckCircle, XCircle, FileText, LogIn, LogOut, Coffee } from 'lucide-react'
 
-type Emp = {
-  id:string; nombre:string; email:string; rol:string; departamento:string; puesto:string
-  jornada_horas:number; tipo_contrato:string; fecha_alta:string; estado:string; avatar_color:string
-}
+type Emp = { id:string; nombre:string; email:string; rol:string; departamento:string; puesto:string; jornada_horas:number; tipo_contrato:string; fecha_alta:string; estado:string; avatar_color:string }
+type Activity = { id:string; tipo:string; subtipo:string; descripcion:string; fecha:string; color:string }
 
 const COLORES = ['#6366F1','#10B981','#F59E0B','#EF4444','#8B5CF6','#06B6D4','#F97316','#EC4899']
 const ESTADOS = ['activo','baja','vacaciones']
 const CONTRATOS = ['indefinido','temporal','obra_servicio','practicas','formacion']
 const DEPARTAMENTOS = ['Administración','Comercial','Informática','RRHH','Operaciones','Dirección','Marketing','Producción']
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+const fmt = (n: number) => n.toLocaleString('es-ES',{style:'currency',currency:'EUR'})
 
 export default function EmpleadoDetailPage() {
   const router = useRouter()
@@ -23,15 +23,29 @@ export default function EmpleadoDetailPage() {
   const [saving, setSaving] = useState(false)
   const [nominas, setNominas] = useState<any[]>([])
   const [solicitudes, setSolicitudes] = useState<any[]>([])
+  const [actividad, setActividad] = useState<Activity[]>([])
 
   useEffect(() => {
     if (!id) return
     Promise.all([
       supabase.from('empleados').select('*').eq('id', id).single(),
       supabase.from('nominas').select('*').eq('empleado_id', id).order('anio',{ascending:false}).order('mes',{ascending:false}).limit(6),
-      supabase.from('solicitudes').select('*').eq('empleado_id', id).order('created_at',{ascending:false}).limit(5),
-    ]).then(([{data:e},{data:n},{data:s}]) => {
+      supabase.from('solicitudes').select('*').eq('empleado_id', id).order('created_at',{ascending:false}).limit(10),
+      supabase.from('fichajes').select('*').eq('empleado_id', id).order('timestamp',{ascending:false}).limit(10),
+    ]).then(([{data:e},{data:n},{data:s},{data:f}]) => {
       setEmp(e); setForm(e||{}); setNominas(n||[]); setSolicitudes(s||[])
+      // Construir historial combinado
+      const acts: Activity[] = []
+      ;(s||[]).forEach((sol:any) => {
+        const color = sol.estado==='aprobada'?'bg-emerald-500':sol.estado==='rechazada'?'bg-red-500':'bg-amber-500'
+        acts.push({ id:sol.id, tipo:'Solicitud', subtipo:sol.tipo.replace(/_/g,' '), descripcion:`${sol.estado} · ${sol.fecha_inicio} → ${sol.fecha_fin}`, fecha:sol.created_at, color })
+      })
+      ;(f||[]).forEach((fic:any) => {
+        const colors: Record<string,string> = { entrada:'bg-emerald-500', salida:'bg-red-500', pausa_inicio:'bg-amber-500', pausa_fin:'bg-indigo-500' }
+        acts.push({ id:fic.id, tipo:'Fichaje', subtipo:fic.tipo.replace(/_/g,' '), descripcion:`${new Date(fic.timestamp).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}`, fecha:fic.timestamp, color:colors[fic.tipo]||'bg-slate-400' })
+      })
+      acts.sort((a,b) => new Date(b.fecha).getTime()-new Date(a.fecha).getTime())
+      setActividad(acts.slice(0,15))
     })
   }, [id])
 
@@ -39,17 +53,11 @@ export default function EmpleadoDetailPage() {
     if (!emp) return
     setSaving(true)
     await supabase.from('empleados').update(form).eq('id', emp.id)
-    setEmp({...emp,...form} as Emp)
-    setEditando(false)
-    setSaving(false)
+    setEmp({...emp,...form} as Emp); setEditando(false); setSaving(false)
   }
 
-  function f(key: keyof Emp) {
-    return (e: any) => setForm(prev => ({...prev, [key]: e.target.value}))
-  }
+  function f(key: keyof Emp) { return (e: any) => setForm(prev => ({...prev, [key]: e.target.value})) }
 
-  const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-  const fmt = (n: number) => n.toLocaleString('es-ES',{style:'currency',currency:'EUR'})
   const ESTADO_COLOR: Record<string,string> = { activo:'badge-green', baja:'badge-red', vacaciones:'badge-amber' }
   const SOL_COLOR: Record<string,string> = { aprobada:'badge-green', pendiente:'badge-amber', rechazada:'badge-red' }
 
@@ -58,31 +66,25 @@ export default function EmpleadoDetailPage() {
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={()=>router.push('/admin/empleados')} className="p-2 rounded-xl hover:bg-slate-100 transition-colors">
-          <ArrowLeft className="w-5 h-5 text-slate-600"/>
+        <button onClick={()=>router.push('/admin/empleados')} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+          <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-300"/>
         </button>
         <div className="flex-1">
           <h1 className="page-title">{emp.nombre}</h1>
-          <p className="text-sm text-slate-500">{emp.puesto} · {emp.departamento}</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">{emp.puesto} · {emp.departamento}</p>
         </div>
         {!editando ? (
-          <button onClick={()=>setEditando(true)} className="btn-secondary gap-2">
-            <Edit2 className="w-4 h-4"/>Editar
-          </button>
+          <button onClick={()=>setEditando(true)} className="btn-secondary gap-2"><Edit2 className="w-4 h-4"/>Editar</button>
         ) : (
           <div className="flex gap-2">
-            <button onClick={()=>setEditando(false)} className="btn-secondary gap-2">
-              <X className="w-4 h-4"/>Cancelar
-            </button>
-            <button onClick={handleSave} disabled={saving} className="btn-primary gap-2">
-              <Save className="w-4 h-4"/>{saving?'Guardando…':'Guardar'}
-            </button>
+            <button onClick={()=>setEditando(false)} className="btn-secondary gap-2"><X className="w-4 h-4"/>Cancelar</button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary gap-2"><Save className="w-4 h-4"/>{saving?'Guardando…':'Guardar'}</button>
           </div>
         )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Ficha principal */}
+        {/* Ficha */}
         <div className="lg:col-span-2 space-y-5">
           <div className="card p-6">
             <div className="flex items-center gap-4 mb-6">
@@ -100,21 +102,18 @@ export default function EmpleadoDetailPage() {
                   {emp.nombre.split(' ').map(n=>n[0]).join('').substring(0,2)}
                 </div>
               )}
-              <div>
-                <span className={`badge ${ESTADO_COLOR[emp.estado]||'badge-slate'} capitalize`}>{emp.estado}</span>
-              </div>
+              <span className={`badge ${ESTADO_COLOR[emp.estado]||'badge-slate'} capitalize`}>{emp.estado}</span>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
-                { key:'nombre', label:'Nombre completo', icon:User },
-                { key:'email', label:'Correo electrónico', icon:Mail },
-                { key:'departamento', label:'Departamento', icon:Building2, type:'select', opts:DEPARTAMENTOS },
-                { key:'puesto', label:'Puesto', icon:Briefcase },
-                { key:'fecha_alta', label:'Fecha de alta', icon:Calendar, type:'date' },
-                { key:'jornada_horas', label:'Jornada (horas/día)', icon:Calendar, type:'number' },
-                { key:'tipo_contrato', label:'Tipo de contrato', icon:CreditCard, type:'select', opts:CONTRATOS },
-                { key:'estado', label:'Estado', icon:User, type:'select', opts:ESTADOS },
+                {key:'nombre',label:'Nombre completo',icon:User},
+                {key:'email',label:'Correo electrónico',icon:Mail},
+                {key:'departamento',label:'Departamento',icon:Building2,type:'select',opts:DEPARTAMENTOS},
+                {key:'puesto',label:'Puesto',icon:Briefcase},
+                {key:'fecha_alta',label:'Fecha de alta',icon:Calendar,type:'date'},
+                {key:'jornada_horas',label:'Jornada (h/día)',icon:Clock,type:'number'},
+                {key:'tipo_contrato',label:'Tipo de contrato',icon:CreditCard,type:'select',opts:CONTRATOS},
+                {key:'estado',label:'Estado',icon:User,type:'select',opts:ESTADOS},
               ].map(({key,label,icon:Icon,type,opts})=>(
                 <div key={key}>
                   <label className="label flex items-center gap-1"><Icon className="w-3 h-3"/>{label}</label>
@@ -123,43 +122,64 @@ export default function EmpleadoDetailPage() {
                       <select value={(form as any)[key]||''} onChange={f(key as keyof Emp)} className="input capitalize">
                         {opts.map(o=><option key={o} value={o} className="capitalize">{o.replace(/_/g,' ')}</option>)}
                       </select>
-                    ) : (
-                      <input type={type||'text'} value={(form as any)[key]||''} onChange={f(key as keyof Emp)} className="input"/>
-                    )
-                  ) : (
-                    <p className="text-sm text-slate-800 font-medium py-2 capitalize">{String((emp as any)[key]||'—').replace(/_/g,' ')}</p>
-                  )}
+                    ) : <input type={type||'text'} value={(form as any)[key]||''} onChange={f(key as keyof Emp)} className="input"/>
+                  ) : <p className="text-sm text-slate-800 dark:text-slate-200 font-medium py-2 capitalize">{String((emp as any)[key]||'—').replace(/_/g,' ')}</p>}
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Historial de actividad */}
+          <div className="card p-5">
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-indigo-500"/>Historial de actividad
+            </h3>
+            {actividad.length===0 ? <p className="text-sm text-slate-400 text-center py-4">Sin actividad registrada</p> : (
+              <div className="relative">
+                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200 dark:bg-slate-600"/>
+                <div className="space-y-3">
+                  {actividad.map((a,i) => (
+                    <div key={a.id+i} className="flex items-start gap-4 relative">
+                      <div className={`w-8 h-8 rounded-full ${a.color} flex items-center justify-center flex-shrink-0 z-10`}>
+                        <span className="text-white text-xs font-bold">{a.subtipo[0].toUpperCase()}</span>
+                      </div>
+                      <div className="flex-1 pt-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 capitalize">{a.tipo}: {a.subtipo}</span>
+                          <span className="badge badge-slate">{new Date(a.fecha).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 capitalize">{a.descripcion}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Panel lateral */}
         <div className="space-y-4">
-          {/* Últimas nóminas */}
           <div className="card p-5">
-            <h3 className="font-bold text-slate-900 mb-3 text-sm">Últimas nóminas</h3>
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-3 text-sm">Últimas nóminas</h3>
             {nominas.length===0 ? <p className="text-xs text-slate-400">Sin nóminas</p> : (
               <div className="space-y-2">
                 {nominas.map(n=>(
                   <div key={n.id} className="flex justify-between items-center">
-                    <span className="text-xs text-slate-600">{MESES[n.mes-1]} {n.anio}</span>
+                    <span className="text-xs text-slate-600 dark:text-slate-300">{MESES[n.mes-1]} {n.anio}</span>
                     <span className="text-xs font-semibold text-emerald-600">{fmt(n.liquido)}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
-
-          {/* Últimas solicitudes */}
           <div className="card p-5">
-            <h3 className="font-bold text-slate-900 mb-3 text-sm">Últimas solicitudes</h3>
+            <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-3 text-sm">Últimas solicitudes</h3>
             {solicitudes.length===0 ? <p className="text-xs text-slate-400">Sin solicitudes</p> : (
               <div className="space-y-2">
-                {solicitudes.map(s=>(
+                {solicitudes.slice(0,5).map(s=>(
                   <div key={s.id} className="flex justify-between items-center">
-                    <span className="text-xs text-slate-600 capitalize">{s.tipo.replace(/_/g,' ')}</span>
+                    <span className="text-xs text-slate-600 dark:text-slate-300 capitalize">{s.tipo.replace(/_/g,' ')}</span>
                     <span className={`badge ${SOL_COLOR[s.estado]||'badge-slate'} capitalize`}>{s.estado}</span>
                   </div>
                 ))}

@@ -33,7 +33,7 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
 
   function getGroupForPath(p: string): string | null {
     if (['/empleado/solicitudes','/empleado/bajas','/empleado/solicitar-documentos'].some(h=>p.startsWith(h))) return 'solicitudes'
-    if (['/empleado/nominas','/empleado/calendario'].some(h=>p.startsWith(h))) return 'docs'
+    if (p.startsWith('/empleado/nominas')) return 'docs'
     if (['/empleado/mensajes','/empleado/notificaciones'].some(h=>p.startsWith(h))) return 'comunicacion'
     return null
   }
@@ -73,9 +73,8 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
       {href:'/empleado/bajas',label:'Mis bajas',icon:FileText},
       {href:'/empleado/solicitar-documentos',label:'Pedir documentos',icon:FolderOpen},
     ]},
-    { key:'docs', label:'Mis documentos', icon:CreditCard, items:[
-      {href:'/empleado/nominas',label:'Nóminas y docs',icon:CreditCard},
-      {href:'/empleado/calendario',label:'Calendario',icon:CalendarDays},
+    { key:'docs', label:'Nóminas y docs', icon:CreditCard, items:[
+      {href:'/empleado/nominas',label:'Nóminas y documentos',icon:CreditCard},
     ]},
     { key:'comunicacion', label:'Comunicación', icon:MessageSquare, items:[
       {href:'/empleado/mensajes',label:'Mensajes',icon:MessageSquare},
@@ -108,7 +107,11 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
       </div>
 
       <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
-        {[{href:'/empleado',label:'Inicio',icon:LayoutDashboard},{href:'/empleado/fichaje',label:'Fichaje',icon:Clock}].map(item=>(
+        {/* Items simples: Inicio y Fichaje */}
+        {[
+          {href:'/empleado',label:'Inicio',icon:LayoutDashboard},
+          {href:'/empleado/fichaje',label:'Fichaje',icon:Clock},
+        ].map(item=>(
           <button key={item.href} onClick={()=>{router.push(item.href);setOpen(false)}}
             className={`nav-item w-full ${pathname===item.href?'nav-item-active':'nav-item-inactive'}`}>
             <item.icon className="w-4 h-4 flex-shrink-0"/>
@@ -117,6 +120,15 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
           </button>
         ))}
 
+        {/* Calendario standalone */}
+        <button onClick={()=>{router.push('/empleado/calendario');setOpen(false)}}
+          className={`nav-item w-full ${pathname.startsWith('/empleado/calendario')?'nav-item-active':'nav-item-inactive'}`}>
+          <CalendarDays className="w-4 h-4 flex-shrink-0"/>
+          <span className="flex-1 text-left">Mi calendario</span>
+          {pathname.startsWith('/empleado/calendario')&&<ChevronRight className="w-3 h-3 opacity-40"/>}
+        </button>
+
+        {/* Grupos colapsables */}
         {GROUPS.map(group=>{
           const isOpen=openGroup===group.key
           const hasActive=group.items.some(item=>pathname.startsWith(item.href))
@@ -152,6 +164,7 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
           )
         })}
 
+        {/* Mi perfil */}
         <button onClick={()=>{router.push('/empleado/perfil');setOpen(false)}}
           className={`nav-item w-full ${pathname==='/empleado/perfil'?'nav-item-active':'nav-item-inactive'}`}>
           <User className="w-4 h-4 flex-shrink-0"/>
@@ -171,8 +184,7 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
             <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium capitalize">{empleado.puesto}</p>
           </div>
         </div>
-        <button
-          onClick={async()=>{ await supabase.auth.signOut(); router.push('/') }}
+        <button onClick={async()=>{ await supabase.auth.signOut(); router.push('/') }}
           className="nav-item nav-item-inactive w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 text-xs py-1.5">
           <LogOut className="w-3.5 h-3.5"/>
           <span>Cerrar sesión</span>

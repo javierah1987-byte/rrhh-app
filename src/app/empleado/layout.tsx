@@ -44,10 +44,10 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) { router.push('/login'); return }
+      if (!data.user) { router.push('/'); return }
       supabase.from('empleados').select('*').eq('user_id',data.user.id).single()
         .then(({ data: emp }) => {
-          if (!emp) { router.push('/login'); return }
+          if (!emp) { router.push('/'); return }
           setEmpleado(emp)
           supabase.from('notificaciones').select('id',{count:'exact'}).eq('empleado_id',emp.id).eq('leida',false)
             .then(({ count }) => setNotifCount(count||0))
@@ -73,10 +73,10 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
       {href:'/empleado/solicitar-documentos',label:'Pedir documentos',icon:FolderOpen},
     ]},
     { key:'docs', label:'Mis documentos', icon:CreditCard, items:[
-      {href:'/empleado/nominas',label:'Nóminas y docs',icon:CreditCard},
+      {href:'/empleado/nominas',label:'NÃ³minas y docs',icon:CreditCard},
       {href:'/empleado/calendario',label:'Calendario',icon:CalendarDays},
     ]},
-    { key:'comunicacion', label:'Comunicación', icon:MessageSquare, items:[
+    { key:'comunicacion', label:'ComunicaciÃ³n', icon:MessageSquare, items:[
       {href:'/empleado/mensajes',label:'Mensajes',icon:MessageSquare},
       {href:'/empleado/notificaciones',label:'Notificaciones',icon:BellRing,badge:notifCount},
     ]},
@@ -86,7 +86,7 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
     <div className="min-h-screen flex items-center justify-center" style={{background:'linear-gradient(135deg,#EEF2FF,#F0FDF4)'}}>
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 rounded-xl animate-spin border-4 border-indigo-200 border-t-indigo-600"/>
-        <p className="text-sm text-slate-500">Cargando Nexo HR…</p>
+        <p className="text-sm text-slate-500">Cargando Nexo HRâ¦</p>
       </div>
     </div>
   )
@@ -170,9 +170,9 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
             <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium capitalize">{empleado.puesto}</p>
           </div>
         </div>
-        <button onClick={async()=>{await supabase.auth.signOut();router.push('/login')}}
+        <button onClick={async()=>{await supabase.auth.signOut();router.push('/')}}
           className="nav-item nav-item-inactive w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 text-xs py-1.5">
-          <LogOut className="w-3.5 h-3.5"/><span>Cerrar sesión</span>
+          <LogOut className="w-3.5 h-3.5"/><span>Cerrar sesiÃ³n</span>
         </button>
       </div>
     </div>

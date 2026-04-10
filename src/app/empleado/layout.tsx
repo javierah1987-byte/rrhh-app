@@ -8,6 +8,7 @@ import {
   CreditCard, CalendarDays, MessageSquare, BellRing,
   User, LogOut, ChevronRight, ChevronDown, Menu, Sun, Moon
 } from 'lucide-react'
+import { ToastProvider } from '@/components/ToastProvider'
 
 const NexoLogo = () => (
   <svg width="22" height="22" viewBox="0 0 80 80" fill="none">
@@ -49,7 +50,7 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
         .then(({ data: emp }) => {
           if (!emp) { router.push('/'); return }
           setEmpleado(emp)
-          supabase.from('notificaciones').select('id',{count:'exact'}).eq('empleado_id',emp.id).eq('leida',false)
+          supabase.from('notificaciones').select('id',{count:'exact',head:true}).eq('empleado_id',emp.id).eq('leida',false)
             .then(({ count }) => setNotifCount(count||0))
           const ch = supabase.channel('notif-emp-nav')
             .on('postgres_changes',{event:'INSERT',schema:'public',table:'notificaciones'},()=>{setNotifCount(c=>c+1)}).subscribe()
@@ -73,10 +74,10 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
       {href:'/empleado/solicitar-documentos',label:'Pedir documentos',icon:FolderOpen},
     ]},
     { key:'docs', label:'Mis documentos', icon:CreditCard, items:[
-      {href:'/empleado/nominas',label:'NÃ³minas y docs',icon:CreditCard},
+      {href:'/empleado/nominas',label:'Nóminas y docs',icon:CreditCard},
       {href:'/empleado/calendario',label:'Calendario',icon:CalendarDays},
     ]},
-    { key:'comunicacion', label:'ComunicaciÃ³n', icon:MessageSquare, items:[
+    { key:'comunicacion', label:'Comunicación', icon:MessageSquare, items:[
       {href:'/empleado/mensajes',label:'Mensajes',icon:MessageSquare},
       {href:'/empleado/notificaciones',label:'Notificaciones',icon:BellRing,badge:notifCount},
     ]},
@@ -86,7 +87,7 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
     <div className="min-h-screen flex items-center justify-center" style={{background:'linear-gradient(135deg,#EEF2FF,#F0FDF4)'}}>
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 rounded-xl animate-spin border-4 border-indigo-200 border-t-indigo-600"/>
-        <p className="text-sm text-slate-500">Cargando Nexo HRâ¦</p>
+        <p className="text-sm text-slate-500">Cargando...</p>
       </div>
     </div>
   )
@@ -137,8 +138,7 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
                     const ItemIcon=item.icon
                     return (
                       <button key={item.href} onClick={()=>{router.push(item.href);setOpen(false)}}
-                        className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl text-xs font-medium transition-all
-                          ${active?'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300':'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100'}`}>
+                        className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl text-xs font-medium transition-all ${active?'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300':'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100'}`}>
                         <ItemIcon className="w-3.5 h-3.5 flex-shrink-0"/>
                         <span className="flex-1 text-left">{item.label}</span>
                         {(item.badge||0)>0&&<span className="bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{item.badge}</span>}
@@ -170,36 +170,40 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
             <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium capitalize">{empleado.puesto}</p>
           </div>
         </div>
-        <button onClick={async()=>{await supabase.auth.signOut();router.push('/')}}
+        <button
+          onClick={async()=>{ await supabase.auth.signOut(); router.push('/') }}
           className="nav-item nav-item-inactive w-full text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 text-xs py-1.5">
-          <LogOut className="w-3.5 h-3.5"/><span>Cerrar sesiÃ³n</span>
+          <LogOut className="w-3.5 h-3.5"/>
+          <span>Cerrar sesión</span>
         </button>
       </div>
     </div>
   )
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{backgroundColor:'var(--bg)'}}>
-      <aside className="hidden lg:flex w-52 flex-col border-r border-slate-200 dark:border-slate-700 flex-shrink-0"><Sidebar/></aside>
-      {open&&(
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={()=>setOpen(false)}/>
-          <aside className="absolute left-0 top-0 h-full w-52 shadow-xl"><Sidebar/></aside>
+    <ToastProvider>
+      <div className="flex h-screen overflow-hidden" style={{backgroundColor:'var(--bg)'}}>
+        <aside className="hidden lg:flex w-52 flex-col border-r border-slate-200 dark:border-slate-700 flex-shrink-0"><Sidebar/></aside>
+        {open&&(
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="absolute inset-0 bg-black/40" onClick={()=>setOpen(false)}/>
+            <aside className="absolute left-0 top-0 h-full w-52 shadow-xl"><Sidebar/></aside>
+          </div>
+        )}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+            <button onClick={()=>setOpen(true)} className="relative p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+              <Menu className="w-5 h-5 text-slate-600 dark:text-slate-300"/>
+              {notifCount>0&&<span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{notifCount}</span>}
+            </button>
+            <span className="font-bold text-slate-900 dark:text-slate-100 flex-1">Nexo HR</span>
+            <button onClick={toggleDark} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+              {dark?<Sun className="w-4 h-4 text-amber-400"/>:<Moon className="w-4 h-4 text-slate-400"/>}
+            </button>
+          </div>
+          <main id="main-content" className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-900">{children}</main>
         </div>
-      )}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="lg:hidden flex items-center gap-3 px-4 py-3 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-          <button onClick={()=>setOpen(true)} className="relative p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-            <Menu className="w-5 h-5 text-slate-600 dark:text-slate-300"/>
-            {notifCount>0&&<span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">{notifCount}</span>}
-          </button>
-          <span className="font-bold text-slate-900 dark:text-slate-100 flex-1">Nexo HR</span>
-          <button onClick={toggleDark} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-            {dark?<Sun className="w-4 h-4 text-amber-400"/>:<Moon className="w-4 h-4 text-slate-400"/>}
-          </button>
-        </div>
-        <main className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-900">{children}</main>
       </div>
-    </div>
+    </ToastProvider>
   )
 }

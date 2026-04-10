@@ -4,10 +4,9 @@ import { supabase } from '@/lib/supabase'
 import { Breadcrumb } from '@/components/Breadcrumb'
 import { LogIn, LogOut, Coffee, Play, Clock, AlertTriangle, CheckCircle, Loader2, History, Timer, X } from 'lucide-react'
 
-const JORNADA_HORAS = 8
+const JORNADA_DEFAULT = 8
 const AVISO_MINUTOS = 30
-const JORNADA_SEG  = JORNADA_HORAS * 3600
-const AVISO_SEG    = JORNADA_SEG - AVISO_MINUTOS * 60
+// JORNADA_SEG y AVISO_SEG se calculan dentro del componente
 
 type Evento = { id: string; tipo: string; timestamp: string }
 type Estado  = 'sin_fichar' | 'trabajando' | 'en_pausa' | 'finalizado'
@@ -59,7 +58,7 @@ function ModalHorasExtra({onClose,onSubmit,loading}:{onClose:()=>void;onSubmit:(
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Solicitar horas extra</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"><X className="w-4 h-4 text-slate-500"/></button>
         </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Vas a superar tu jornada de {JORNADA_HORAS} horas. Indica cuántas horas extra necesitas y el motivo para que el administrador lo apruebe.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Vas a superar tu jornada de {jornadaH} horas. Indica cuántas horas extra necesitas y el motivo para que el administrador lo apruebe.</p>
         <div className="space-y-4">
           <div>
             <label className="label">Horas extra</label>
@@ -88,6 +87,7 @@ function ModalHorasExtra({onClose,onSubmit,loading}:{onClose:()=>void;onSubmit:(
 
 export default function FichajePage() {
   const [empId,setEmpId]=useState<string|null>(null)
+  const [jornadaH,setJornadaH]=useState(JORNADA_DEFAULT)
   const [eventos,setEventos]=useState<Evento[]>([])
   const [loading,setLoading]=useState(true)
   const [accion,setAccion]=useState(false)
@@ -118,12 +118,17 @@ export default function FichajePage() {
   useEffect(()=>{
     supabase.auth.getUser().then(({data})=>{
       if(!data.user)return
-      supabase.from('empleados').select('id').eq('user_id',data.user.id).single().then(({data:emp})=>{
-        if(!emp)return; setEmpId(emp.id); cargar(emp.id).finally(()=>setLoading(false))
+      supabase.from('empleados').select('id,jornada_horas').eq('user_id',data.user.id).single().then(({data:emp})=>{
+        if(!emp)return
+        setEmpId(emp.id)
+        if(emp.jornada_horas) setJornadaH(Math.round(emp.jornada_horas/5))
+        cargar(emp.id).finally(()=>setLoading(false))
       })
     })
   },[cargar])
 
+  const JORNADA_SEG = jornadaH * 3600
+  const AVISO_SEG   = JORNADA_SEG - AVISO_MINUTOS * 60
   const {trabajado,pausa,estado}=calcularTiempos(eventos,ahora)
   const pausas=parsarPausas(eventos)
   const pct=Math.min(100,(trabajado/JORNADA_SEG)*100)
@@ -170,7 +175,7 @@ export default function FichajePage() {
         <div className="card p-4 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5"/>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-red-800 dark:text-red-300">Has superado tu jornada de {JORNADA_HORAS} horas</p>
+            <p className="text-sm font-semibold text-red-800 dark:text-red-300">Has superado tu jornada de {jornadaH} horas</p>
             <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">Solicita aprobación para las horas extra realizadas.</p>
           </div>
           <button onClick={()=>setModalExtra(true)} className="btn-primary text-xs px-3 py-1.5 bg-red-500 hover:bg-red-600 border-red-500 whitespace-nowrap flex-shrink-0">Solicitar horas extra</button>
@@ -201,7 +206,7 @@ export default function FichajePage() {
         {/* Barra jornada */}
         <div className="mb-5">
           <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mb-1.5">
-            <span>Jornada ({JORNADA_HORAS}h)</span>
+            <span>Jornada ({jornadaH}h)</span>
             <span className={`font-mono ${superaJornada?'text-red-500 font-bold':cercaLimite?'text-amber-500 font-semibold':''}`}>{fmt(trabajado)}</span>
           </div>
           <div className="h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">

@@ -18,13 +18,13 @@ const GROUPS: NavGroup[] = [
   { label:'Config', items:[{icon:Calendar,label:'Calendario',href:'/admin/calendario'},{icon:CalendarDays,label:'Festivos',href:'/admin/festivos'}] },
 ]
 
-function NavItemBtn({item,active,badge}:{item:NavItem;active:boolean;badge:boolean}){
+function NavItemBtn({item,active,badge}:{item:NavItem;active:boolean;badge:number}){
   const router=useRouter()
   return(
     <button onClick={()=>router.push(item.href)} className={`nav-item w-full ${active?'nav-item-active':'nav-item-inactive'}`}>
       <item.icon className="w-4 h-4 flex-shrink-0"/>
       <span className="flex-1 text-left truncate text-sm">{item.label}</span>
-      {badge&&<span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0"/>}
+      {badge>0&&<span className="min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 flex-shrink-0">{badge}</span>}
     </button>
   )
 }
@@ -68,7 +68,7 @@ function Sidebar({onClose,pendientes}:{onClose?:()=>void;pendientes:number}){
             {openG[g.label!]!==false&&g.items.map(item=>(
               <NavItemBtn key={item.href} item={item}
                 active={pathname===item.href||(item.href!=='/admin'&&pathname.startsWith(item.href))}
-                badge={!!(item.badge&&pendientes>0)}/>
+                badge={item.badge ? pendientes : 0}/>
             ))}
           </div>
         ))}

@@ -29,14 +29,14 @@ export default function NotFound() {
           </div>
           <span className="font-bold text-slate-900 dark:text-slate-100">Nexo HR</span>
         </div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">PÃ¡gina no encontrada</h1>
-        <p className="text-slate-500 dark:text-slate-400 mb-8">La pÃ¡gina que buscas no existe o ha sido movida.</p>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">Página no encontrada</h1>
+        <p className="text-slate-500 dark:text-slate-400 mb-8">La página que buscas no existe o ha sido movida.</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link href="/admin" className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors">
             Ir al Dashboard
           </Link>
           <Link href="/" className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl border border-slate-200 dark:border-slate-700 transition-colors">
-            Iniciar sesiÃ³n
+            Iniciar sesión
           </Link>
         </div>
       </div>

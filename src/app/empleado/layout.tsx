@@ -138,7 +138,8 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
                     const ItemIcon=item.icon
                     return (
                       <button key={item.href} onClick={()=>{router.push(item.href);setOpen(false)}}
-                        className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl text-xs font-medium transition-all ${active?'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300':'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100'}`}>
+                        className={`w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl text-xs font-medium transition-all
+                          ${active?'bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300':'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-slate-100'}`}>
                         <ItemIcon className="w-3.5 h-3.5 flex-shrink-0"/>
                         <span className="flex-1 text-left">{item.label}</span>
                         {(item.badge||0)>0&&<span className="bg-indigo-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{item.badge}</span>}

@@ -214,7 +214,28 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
               {dark?<Sun className="w-4 h-4 text-amber-400"/>:<Moon className="w-4 h-4 text-slate-400"/>}
             </button>
           </div>
-          <main id="main-content" className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-900">{children}</main>
+          <main id="main-content" className="flex-1 overflow-y-auto p-6 pb-24 lg:pb-6 bg-slate-50 dark:bg-slate-900">{children}</main>
+          {/* Bottom nav móvil */}
+          <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 flex items-stretch h-16">
+            {([
+              {href:'/empleado',label:'Inicio',d:'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'},
+              {href:'/empleado/fichaje',label:'Fichaje',d:'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'},
+              {href:'/empleado/solicitudes',label:'Solicitudes',d:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2'},
+              {href:'/empleado/calendario',label:'Calendario',d:'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'},
+              {href:'/empleado/nominas',label:'Nóminas',d:'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'},
+            ] as {href:string;label:string;d:string}[]).map(item=>{
+              const active = item.href==='/empleado' ? pathname==='/empleado' : pathname.startsWith(item.href)
+              return(
+                <button key={item.href} onClick={()=>router.push(item.href)}
+                  className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${active?'text-indigo-600 dark:text-indigo-400':'text-slate-400 dark:text-slate-500'}`}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                    <path d={item.d}/>
+                  </svg>
+                  <span className="text-[10px] font-medium leading-none">{item.label}</span>
+                </button>
+              )
+            })}
+          </nav>
         </div>
       </div>
     </ToastProvider>

@@ -12,7 +12,7 @@ type NavGroup = { label: string|null; items: NavItem[] }
 const GROUPS: NavGroup[] = [
   { label:null, items:[{icon:LayoutDashboard,label:'Dashboard',href:'/admin'}] },
   { label:'Equipo', items:[{icon:Users,label:'Empleados',href:'/admin/empleados'},{icon:Clock,label:'Control horas',href:'/admin/control-horas'},{icon:ClipboardList,label:'Horarios',href:'/admin/horarios'},{icon:Star,label:'Evaluaciones',href:'/admin/evaluaciones'}] },
-  { label:'Solicitudes', items:[{icon:CalendarDays,label:'Vacaciones',href:'/admin/vacaciones',badge:true},{icon:FileText,label:'Bajas',href:'/admin/bajas'},{icon:Briefcase,label:'Petición docs',href:'/admin/solicitudes-documentos'}] },
+  { label:'Solicitudes', items:[{icon:CalendarDays,label:'Solicitudes',href:'/admin/vacaciones',badge:true},{icon:FileText,label:'Bajas',href:'/admin/bajas'},{icon:Briefcase,label:'Petición docs',href:'/admin/solicitudes-documentos'}] },
   { label:'Nóminas y docs', items:[{icon:DollarSign,label:'Nóminas',href:'/admin/nominas'},{icon:FileText,label:'Documentos',href:'/admin/documentos'},{icon:BarChart2,label:'Informes',href:'/admin/informes'}] },
   { label:'Comunicación', items:[{icon:Bell,label:'Avisos',href:'/admin/avisos'},{icon:MessageSquare,label:'Mensajes',href:'/admin/mensajes'},{icon:Gift,label:'Recordatorios',href:'/admin/recordatorios'}] },
   { label:'Config', items:[{icon:Calendar,label:'Calendario',href:'/admin/calendario'},{icon:CalendarDays,label:'Festivos',href:'/admin/festivos'}] },

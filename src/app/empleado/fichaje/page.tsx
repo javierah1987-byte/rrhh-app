@@ -49,7 +49,7 @@ function parsarPausas(eventos: Evento[]) {
   return pausas
 }
 
-function ModalHorasExtra({onClose,onSubmit,loading}:{onClose:()=>void;onSubmit:(h:number,m:string)=>void;loading:boolean}) {
+function ModalHorasExtra({onClose,onSubmit,loading,jornada}:{onClose:()=>void;onSubmit:(h:number,m:string)=>void;loading:boolean;jornada:number}) {
   const [horas,setHoras]=useState(1), [motivo,setMotivo]=useState('')
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -297,7 +297,7 @@ export default function FichajePage() {
         </div>
       )}
 
-      {modalExtra&&<ModalHorasExtra onClose={()=>setModalExtra(false)} onSubmit={enviarHorasExtra} loading={loadingExtra}/>}
+      {modalExtra&&<ModalHorasExtra onClose={()=>setModalExtra(false)} onSubmit={enviarHorasExtra} loading={loadingExtra} jornada={jornadaH}/>}
     </div>
   )
 }

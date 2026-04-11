@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import type { Empleado } from '@/lib/supabase'
 import {
   LayoutDashboard, Clock, Calendar, FileText, FolderOpen,
-  CreditCard, CalendarDays, Heart, Receipt, AlertCircle, MessageSquare, BellRing,
+  CreditCard, CalendarDays, Heart, Receipt, AlertCircle, Shield, MessageSquare, BellRing,
   User, LogOut, ChevronRight, ChevronDown, Menu, Sun, Moon
 } from 'lucide-react'
 import { ToastProvider } from '@/components/ToastProvider'
@@ -180,6 +180,11 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
           className={`nav-item w-full ${pathname==='/empleado/encuestas'?'nav-item-active':'nav-item-inactive'}`}>
           <Heart className="w-4 h-4 flex-shrink-0"/>
           <span className="flex-1 text-left">Clima laboral</span>
+        </button>
+        <button onClick={()=>{router.push('/empleado/privacidad');setOpen(false)}}
+          className={`nav-item w-full ${pathname==='/empleado/privacidad'?'nav-item-active':'nav-item-inactive'}`}>
+          <Shield className="w-4 h-4 flex-shrink-0"/>
+          <span className="flex-1 text-left">Privacidad</span>
         </button>
                 {/* Mi perfil */}
         <button onClick={()=>{router.push('/empleado/perfil');setOpen(false)}}

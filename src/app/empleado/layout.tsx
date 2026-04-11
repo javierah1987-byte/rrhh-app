@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import type { Empleado } from '@/lib/supabase'
 import {
   LayoutDashboard, Clock, Calendar, FileText, FolderOpen,
-  CreditCard, CalendarDays, MessageSquare, BellRing,
+  CreditCard, CalendarDays, Heart, Receipt, AlertCircle, MessageSquare, BellRing,
   User, LogOut, ChevronRight, ChevronDown, Menu, Sun, Moon
 } from 'lucide-react'
 import { ToastProvider } from '@/components/ToastProvider'
@@ -164,7 +164,24 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
           )
         })}
 
-        {/* Mi perfil */}
+        {/* Extras */}
+        <div className="mt-3 px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Extras</div>
+        <button onClick={()=>{router.push('/empleado/correcciones');setOpen(false)}}
+          className={`nav-item w-full ${pathname==='/empleado/correcciones'?'nav-item-active':'nav-item-inactive'}`}>
+          <AlertCircle className="w-4 h-4 flex-shrink-0"/>
+          <span className="flex-1 text-left">Correcciones fichaje</span>
+        </button>
+        <button onClick={()=>{router.push('/empleado/gastos');setOpen(false)}}
+          className={`nav-item w-full ${pathname==='/empleado/gastos'?'nav-item-active':'nav-item-inactive'}`}>
+          <Receipt className="w-4 h-4 flex-shrink-0"/>
+          <span className="flex-1 text-left">Gastos</span>
+        </button>
+        <button onClick={()=>{router.push('/empleado/encuestas');setOpen(false)}}
+          className={`nav-item w-full ${pathname==='/empleado/encuestas'?'nav-item-active':'nav-item-inactive'}`}>
+          <Heart className="w-4 h-4 flex-shrink-0"/>
+          <span className="flex-1 text-left">Clima laboral</span>
+        </button>
+                {/* Mi perfil */}
         <button onClick={()=>{router.push('/empleado/perfil');setOpen(false)}}
           className={`nav-item w-full ${pathname==='/empleado/perfil'?'nav-item-active':'nav-item-inactive'}`}>
           <User className="w-4 h-4 flex-shrink-0"/>

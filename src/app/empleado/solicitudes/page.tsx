@@ -78,8 +78,8 @@ export default function SolicitudesPage() {
                   </div>
                   <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
                     {formatFecha(sol.fecha_inicio)} → {formatFecha(sol.fecha_fin)}
-                    {sol.tipo !== 'horas_extra' && <span className="ml-2 text-gray-400">({diasEntre(sol.fecha_inicio, sol.fecha_fin)} días)</span>}
-                    {sol.tipo === 'horas_extra' && (sol as any).horas_solicitadas && <span className="ml-2 text-orange-500 font-medium">{(sol as any).horas_solicitadas}h extra</span>}
+                    {(sol as any).tipo !== 'horas_extra' && <span className="ml-2 text-gray-400">({diasEntre(sol.fecha_inicio, sol.fecha_fin)} días)</span>}
+                    {(sol as any).tipo === 'horas_extra' && (sol as any).horas_solicitadas && <span className="ml-2 text-orange-500 font-medium">{(sol as any).horas_solicitadas}h extra</span>}
                   </p>
                   {sol.comentario && <p className="text-xs text-gray-400 mt-1 italic">"{sol.comentario}"</p>}
                 </div>

@@ -4,14 +4,14 @@ import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CommandPalette } from '@/components/CommandPalette'
 import { ToastProvider } from '@/components/ToastProvider'
-import { LayoutDashboard,Users,CalendarDays,FileText,Clock,DollarSign,BarChart2,Bell,MessageSquare,Calendar,Briefcase,ClipboardList,Star,Gift,LogOut,ChevronDown,Sun,Moon,Search,Menu,X,LucideIcon,Wifi,AlertCircle,Receipt,Shield } from 'lucide-react'
+import { LayoutDashboard,Users,CalendarDays,FileText,Clock,DollarSign,BarChart2,Bell,MessageSquare,Calendar,Briefcase,ClipboardList,Star,Gift,LogOut,ChevronDown,Sun,Moon,Search,Menu,X,LucideIcon,Wifi,AlertCircle,Receipt,Shield,Building2 } from 'lucide-react'
 
 type NavItem = { icon: LucideIcon; label: string; href: string; badge?: boolean }
 type NavGroup = { label: string|null; items: NavItem[] }
 
 const GROUPS: NavGroup[] = [
   { label:null, items:[{icon:LayoutDashboard,label:'Dashboard',href:'/admin'}] },
-  { label:'Equipo', items:[{icon:Users,label:'Empleados',href:'/admin/empleados'},{icon:Clock,label:'Control horas',href:'/admin/control-horas'},{icon:ClipboardList,label:'Horarios',href:'/admin/horarios'},{icon:Wifi,label:"Who's In",href:'/admin/whois'},{icon:AlertCircle,label:'Correcciones',href:'/admin/correcciones'},{icon:Receipt,label:'Gastos',href:'/admin/gastos'},{icon:Shield,label:'RGPD',href:'/admin/rgpd'},{icon:Star,label:'Evaluaciones',href:'/admin/evaluaciones'}] },
+  { label:'Equipo', items:[{icon:Users,label:'Empleados',href:'/admin/empleados'},{icon:Clock,label:'Control horas',href:'/admin/control-horas'},{icon:ClipboardList,label:'Horarios',href:'/admin/horarios'},{icon:Wifi,label:"Who's In",href:'/admin/whois'},{icon:AlertCircle,label:'Correcciones',href:'/admin/correcciones'},{icon:Receipt,label:'Gastos',href:'/admin/gastos'},{icon:Shield,label:'RGPD',href:'/admin/rgpd'},{icon:Building2,label:'Centros',href:'/admin/centros'},{icon:Star,label:'Evaluaciones',href:'/admin/evaluaciones'}] },
   { label:'Solicitudes', items:[{icon:CalendarDays,label:'Solicitudes',href:'/admin/vacaciones',badge:true},{icon:FileText,label:'Bajas',href:'/admin/bajas'},{icon:Briefcase,label:'Petición docs',href:'/admin/solicitudes-documentos'}] },
   { label:'Nóminas y docs', items:[{icon:DollarSign,label:'Nóminas',href:'/admin/nominas'},{icon:FileText,label:'Documentos',href:'/admin/documentos'},{icon:BarChart2,label:'Informes',href:'/admin/informes'}] },
   { label:'Comunicación', items:[{icon:Bell,label:'Avisos',href:'/admin/avisos'},{icon:MessageSquare,label:'Mensajes',href:'/admin/mensajes'},{icon:Gift,label:'Recordatorios',href:'/admin/recordatorios'}] },
@@ -42,7 +42,7 @@ function Sidebar({onClose,pendientes}:{onClose?:()=>void;pendientes:number}){
     })
   },[])
   const toggleDark=()=>{ const n=!dark; setDark(n); document.documentElement.classList.toggle('dark',n); localStorage.setItem('nexohr-dark',String(n)) }
-  const logout=async()=>{ await supabase.auth.signOut(); router.push('/') }
+  const logout=async()=>{ await supabase.auth.signOut(); router.push('/')  // owner, admin, manager can access }
   return(
     <div className="flex flex-col h-full bg-white dark:bg-slate-800">
       <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0">

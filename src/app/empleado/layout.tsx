@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import type { Empleado } from '@/lib/supabase'
 import {
   LayoutDashboard, Clock, Calendar, FileText, FolderOpen,
-  CreditCard, CalendarDays, Heart, Receipt, AlertCircle, Shield, MessageSquare, BellRing,
+  CreditCard, CalendarDays, Heart, Receipt, AlertCircle, Shield, Users, MessageSquare, BellRing,
   User, LogOut, ChevronRight, ChevronDown, Menu, Sun, Moon
 } from 'lucide-react'
 import { ToastProvider } from '@/components/ToastProvider'
@@ -166,6 +166,13 @@ export default function EmpleadoLayout({ children }: { children: React.ReactNode
 
         {/* Extras */}
         <div className="mt-3 px-2 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Extras</div>
+        {empleado?.rol === 'manager' && (
+          <button onClick={()=>{router.push('/empleado/equipo');setOpen(false)}}
+            className={`nav-item w-full ${pathname==='/empleado/equipo'?'nav-item-active':'nav-item-inactive'}`}>
+            <Users className="w-4 h-4 flex-shrink-0"/>
+            <span className="flex-1 text-left">Mi Equipo</span>
+          </button>
+        )}
         <button onClick={()=>{router.push('/empleado/correcciones');setOpen(false)}}
           className={`nav-item w-full ${pathname==='/empleado/correcciones'?'nav-item-active':'nav-item-inactive'}`}>
           <AlertCircle className="w-4 h-4 flex-shrink-0"/>

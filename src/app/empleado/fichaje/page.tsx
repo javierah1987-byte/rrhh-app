@@ -58,7 +58,7 @@ function ModalHorasExtra({onClose,onSubmit,loading,jornada}:{onClose:()=>void;on
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Solicitar horas extra</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"><X className="w-4 h-4 text-slate-500"/></button>
         </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Vas a superar tu jornada de {jornadaH} horas. Indica cuántas horas extra necesitas y el motivo para que el administrador lo apruebe.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Vas a superar tu jornada de {jornada} horas. Indica cuántas horas extra necesitas y el motivo para que el administrador lo apruebe.</p>
         <div className="space-y-4">
           <div>
             <label className="label">Horas extra</label>

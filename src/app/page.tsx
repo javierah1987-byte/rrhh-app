@@ -16,9 +16,10 @@ function validatePassword(v: string) {
 }
 
 const DEMO_USERS = [
-  { label: 'Admin RRHH', email: 'admin@acme.com', password: 'admin123', role: 'Admin', color: '#4F46E5' },
-  { label: 'Ana García', email: 'ana@acme.com', password: '1234', role: 'Empleada', color: '#059669' },
-  { label: 'Luis Martínez', email: 'luis@acme.com', password: '1234', role: 'Empleado', color: '#0891B2' },
+  { label: 'Carlos Director', email: 'admin@acme.com',  password: 'admin123', role: 'Owner',    color: '#6366f1' },
+  { label: 'María García',    email: 'maria@acme.com',  password: 'admin123', role: 'Admin',    color: '#8b5cf6' },
+  { label: 'Ana García',      email: 'ana@acme.com',    password: '1234',     role: 'Manager',  color: '#10b981' },
+  { label: 'Luis Martínez',   email: 'luis@acme.com',   password: '1234',     role: 'Empleado', color: '#f59e0b' },
 ]
 
 export default function LoginPage() {

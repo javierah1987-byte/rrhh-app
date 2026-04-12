@@ -75,7 +75,7 @@ export function CambioPasswordSection() {
           <label className="label">Confirmar contraseña *</label>
           <div className="relative mt-1">
             <input type={showN?'text':'password'} value={confirma} onChange={e=>{setConfirma(e.target.value);setRes(null)}}
-              placeholder="Repite la contraseña" className={`input w-full ${confirma&&nueva!==confirma?'border-red-300':''`}}/>
+              placeholder="Repite la contraseña" className={`input w-full ${confirma&&nueva!==confirma?'border-red-300':''}`}/>
           </div>
           {confirma && nueva !== confirma && (
             <p className="text-[10px] text-red-500 mt-1">Las contraseñas no coinciden</p>

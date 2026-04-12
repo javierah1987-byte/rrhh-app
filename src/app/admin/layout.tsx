@@ -42,7 +42,7 @@ function Sidebar({onClose,pendientes}:{onClose?:()=>void;pendientes:number}){
     })
   },[])
   const toggleDark=()=>{ const n=!dark; setDark(n); document.documentElement.classList.toggle('dark',n); localStorage.setItem('nexohr-dark',String(n)) }
-  const logout=async()=>{ await supabase.auth.signOut(); router.push('/')  // owner, admin, manager can access }
+  const logout=async()=>{ await supabase.auth.signOut(); router.push('/') }
   return(
     <div className="flex flex-col h-full bg-white dark:bg-slate-800">
       <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0">

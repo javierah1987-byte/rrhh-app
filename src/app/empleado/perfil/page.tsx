@@ -1,4 +1,5 @@
 'use client'
+import { CambioPasswordSection } from './CambioPasswordSection'
 import { useEffect, useState, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/components/ToastProvider'
@@ -98,6 +99,7 @@ export default function EmpleadoPerfilPage() {
           {saving?<div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin"/>:<><Save className="w-4 h-4"/>Guardar cambios</>}
         </button>
       </div>
+      <CambioPasswordSection/>
     </div>
   )
 }

@@ -36,6 +36,7 @@ const GROUPS: NavGroup[] = [
     { icon:Heart,    label:'Clima laboral', href:'/empleado/encuestas' },
     { icon:Shield,   label:'Privacidad',    href:'/empleado/privacidad' },
     { icon:Users,    label:'Mi Equipo',     href:'/empleado/equipo', onlyManager:true },
+    { icon:Lock,     label:'Denuncias',     href:'/empleado/denuncias' },
   ]},
 ]
 

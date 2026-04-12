@@ -10,7 +10,7 @@ import {
   ChevronDown, Sun, Moon, Search, Menu, X, Wifi,
   AlertCircle, Receipt, Shield, Building2,
   Timer, UserCheck, Wallet, Megaphone, Lock,
-  ChevronRight, Settings, CalendarRange
+  ChevronRight, Settings, CalendarRange, AlertTriangle
 } from 'lucide-react'
 
 type NavItem = { icon: any; label: string; href: string; badge?: boolean }
@@ -22,6 +22,7 @@ const GROUPS: NavGroup[] = [
     { icon:Wifi,          label:"Who's In",       href:'/admin/whois' },
     { icon:ClipboardList, label:'Horarios',       href:'/admin/horarios' },
     { icon:AlertCircle,   label:'Correcciones',   href:'/admin/correcciones' },
+    { icon:Clock,         label:'Bolsa de horas',  href:'/admin/bolsa-horas' },
   ]},
   { id:'equipo', label:'Equipo', icon:UserCheck, color:'#10b981', items:[
     { icon:Users,     label:'Empleados',   href:'/admin/empleados' },
@@ -47,7 +48,8 @@ const GROUPS: NavGroup[] = [
     { icon:Gift,          label:'Recordatorios',href:'/admin/recordatorios' },
   ]},
   { id:'cumplimiento', label:'Cumplimiento', icon:Lock, color:'#8b5cf6', items:[
-    { icon:Shield, label:'RGPD', href:'/admin/rgpd' },
+    { icon:Shield,    label:'RGPD',      href:'/admin/rgpd' },
+    { icon:AlertTriangle, label:'Denuncias', href:'/admin/denuncias' },
   ]},
 ]
 

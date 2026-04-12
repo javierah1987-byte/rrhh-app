@@ -1,178 +1,58 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { Bell, AlertTriangle, Calendar, Award, Clock, CheckCircle } from 'lucide-react'
-
-type Emp = { id:string; nombre:string; avatar_color:string; puesto:string; fecha_alta:string; tipo_contrato:string; jornada_horas:number }
-type Alerta = { id:string; tipo:string; titulo:string; descripcion:string; urgencia:'alta'|'media'|'baja'; fecha:string; empleado:Emp }
-
-function diasHasta(fechaStr: string): number {
-  return Math.round((new Date(fechaStr).getTime()-Date.now())/86400000)
-}
-function diasDesde(fechaStr: string): number {
-  return Math.round((Date.now()-new Date(fechaStr).getTime())/86400000)
-}
-function addAnio(fecha: string, n: number): string {
-  const d = new Date(fecha); d.setFullYear(d.getFullYear()+n); return d.toISOString().slice(0,10)
-}
-
-export default function RecordatoriosPage() {
-  const [empleados, setEmpleados] = useState<Emp[]>([])
-  const [alertas, setAlertas] = useState<Alerta[]>([])
-  const [loading, setLoading] = useState(true)
-  const [filtro, setFiltro] = useState<'todas'|'alta'|'media'|'baja'>('todas')
-
-  useEffect(() => {
-    supabase.from('empleados').select('id,nombre,avatar_color,puesto,fecha_alta,tipo_contrato,jornada_horas')
-      .eq('estado','activo').order('nombre')
-      .then(({ data }) => {
-        const emps = data||[]
-        setEmpleados(emps)
-        generarAlertas(emps)
-        setLoading(false)
+import { useState } from 'react'
+import { Bell, Play, CheckCircle, Loader2, Clock, CalendarDays, FileText, Timer } from 'lucide-react'
+const CHECKS=[
+  {id:'sin_fichar',icon:Clock,label:'Sin fichar 3+ días',desc:'Alerta cuando un empleado lleva 3+ días sin fichaje',color:'#6366f1'},
+  {id:'contratos_vencen',icon:FileText,label:'Contratos temporales',desc:'Aviso 30, 15 y 7 días antes de que venza un contrato',color:'#f59e0b'},
+  {id:'solicitudes_pendientes',icon:CalendarDays,label:'Solicitudes sin resolver',desc:'Recordatorio si una solicitud lleva más de 48h pendiente',color:'#10b981'},
+  {id:'deficit_horas',icon:Timer,label:'Déficit de horas (lunes)',desc:'Resumen semanal de empleados con más de 8h de déficit',color:'#ef4444'},
+]
+export default function RecordatoriosPage(){
+  const [ejecutando,setEjecutando]=useState(false)
+  const [resultado,setResultado]=useState<any>(null)
+  async function ejecutarAhora(){
+    setEjecutando(true);setResultado(null)
+    try{
+      const resp=await fetch(process.env.NEXT_PUBLIC_SUPABASE_URL+'/functions/v1/recordatorios-automaticos',{
+        method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer nexohr-cron-2024'},
+        body:JSON.stringify({trigger:'manual'}),
       })
-  }, [])
-
-  function generarAlertas(emps: Emp[]) {
-    const alerts: Alerta[] = []
-    const hoy = new Date().toISOString().slice(0,10)
-
-    emps.forEach(e => {
-      if (!e.fecha_alta) return
-
-      // Aniversarios de empresa (próximos 30 días)
-      const anios = Math.floor(diasDesde(e.fecha_alta)/365)
-      const proxAniversario = addAnio(e.fecha_alta, anios+1)
-      const diasAniv = diasHasta(proxAniversario)
-      if (diasAniv >= 0 && diasAniv <= 30) {
-        alerts.push({
-          id: e.id+'-aniv', tipo:'aniversario',
-          titulo: `🎂 ${anios+1}° aniversario — ${e.nombre}`,
-          descripcion: diasAniv===0 ? '¡Hoy es su aniversario!' : `En ${diasAniv} días cumple ${anios+1} año${anios+1!==1?'s':''} en la empresa`,
-          urgencia: diasAniv<=7?'alta':diasAniv<=15?'media':'baja',
-          fecha: proxAniversario, empleado: e
-        })
-      }
-
-      // Fin período de prueba (contratos temporales o prácticas: 2-6 meses)
-      if (['temporal','practicas','formacion'].includes(e.tipo_contrato)) {
-        const mesesPrueba = e.tipo_contrato==='practicas'?6:3
-        const finPrueba = new Date(e.fecha_alta)
-        finPrueba.setMonth(finPrueba.getMonth()+mesesPrueba)
-        const finPruebaStr = finPrueba.toISOString().slice(0,10)
-        const diasFin = diasHasta(finPruebaStr)
-        if (diasFin >= 0 && diasFin <= 45) {
-          alerts.push({
-            id: e.id+'-prueba', tipo:'prueba',
-            titulo: `⏱️ Fin período de prueba — ${e.nombre}`,
-            descripcion: `Contrato ${e.tipo_contrato.replace(/_/g,' ')}. ${diasFin===0?'¡Vence hoy!':'Vence en '+diasFin+' días'}`,
-            urgencia: diasFin<=7?'alta':diasFin<=20?'media':'baja',
-            fecha: finPruebaStr, empleado: e
-          })
-        }
-      }
-
-      // Contratos temporales que llevan +1 año (posible conversión a indefinido)
-      if (e.tipo_contrato==='temporal') {
-        const diasContrato = diasDesde(e.fecha_alta)
-        if (diasContrato > 365 && diasContrato < 730) {
-          alerts.push({
-            id: e.id+'-conversion', tipo:'conversion',
-            titulo: `📋 Posible conversión a indefinido — ${e.nombre}`,
-            descripcion: `Lleva ${Math.floor(diasContrato/30)} meses con contrato temporal. Revisar si procede conversión.`,
-            urgencia: 'media',
-            fecha: hoy, empleado: e
-          })
-        }
-      }
-
-      // Ausencias largas (sin fichajes recientes - más de 5 días sin actividad, no contando vacaciones)
-      // Nota: simplificado sin cruzar con fichajes para no complicar
-    })
-
-    // Ordenar por urgencia y fecha
-    const orden = {alta:0,media:1,baja:2}
-    alerts.sort((a,b)=>(orden[a.urgencia]-orden[b.urgencia])||a.fecha.localeCompare(b.fecha))
-    setAlertas(alerts)
+      setResultado(await resp.json())
+    }catch(e:any){setResultado({ok:false,error:e.message})}
+    setEjecutando(false)
   }
-
-  const URGENCIA_STYLE = {
-    alta: { card:'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20', badge:'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300', dot:'bg-red-500' },
-    media: { card:'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20', badge:'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300', dot:'bg-amber-500' },
-    baja: { card:'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50', badge:'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300', dot:'bg-slate-400' },
-  }
-
-  const filtradas = alertas.filter(a=>filtro==='todas'||a.urgencia===filtro)
-  const counts = { alta:alertas.filter(a=>a.urgencia==='alta').length, media:alertas.filter(a=>a.urgencia==='media').length, baja:alertas.filter(a=>a.urgencia==='baja').length }
-
-  return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Recordatorios automáticos</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Alertas generadas automáticamente a partir de los datos del equipo</p>
-        </div>
+  return(
+    <div className="max-w-2xl mx-auto">
+      <div className="page-header mb-6">
+        <div><h1 className="page-title flex items-center gap-2"><Bell className="w-5 h-5 text-indigo-500"/>Recordatorios automáticos</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Se ejecutan automáticamente L-V a las 8:00h</p></div>
+        <button onClick={ejecutarAhora} disabled={ejecutando} className="btn-primary flex items-center gap-2 disabled:opacity-50">
+          {ejecutando?<><Loader2 className="w-4 h-4 animate-spin"/>Ejecutando…</>:<><Play className="w-4 h-4"/>Ejecutar ahora</>}
+        </button>
       </div>
-
-      {/* Resumen */}
-      <div className="grid grid-cols-3 gap-4 mb-5">
-        {[
-          {key:'alta',label:'Alta prioridad',count:counts.alta,color:'text-red-600',bg:'bg-red-50 dark:bg-red-900/30'},
-          {key:'media',label:'Media prioridad',count:counts.media,color:'text-amber-600',bg:'bg-amber-50 dark:bg-amber-900/30'},
-          {key:'baja',label:'Baja prioridad',count:counts.baja,color:'text-slate-600 dark:text-slate-400',bg:'bg-slate-50 dark:bg-slate-800'},
-        ].map(s=>(
-          <button key={s.key} onClick={()=>setFiltro(s.key as any)}
-            className={`stat-card text-left transition-all ${filtro===s.key?'ring-2 ring-indigo-500':''}`}>
-            <span className={`text-2xl font-bold ${s.color}`}>{s.count}</span>
-            <span className="stat-label">{s.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Filtros */}
-      <div className="flex gap-2 mb-4">
-        {(['todas','alta','media','baja'] as const).map(f=>(
-          <button key={f} onClick={()=>setFiltro(f)}
-            className={`px-4 py-1.5 rounded-xl text-sm font-medium capitalize transition-colors ${filtro===f?'bg-indigo-600 text-white':'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>
-            {f}
-          </button>
-        ))}
-        <button onClick={()=>window.location.reload()} className="ml-auto btn-secondary text-xs px-3 py-1.5">↻ Actualizar</button>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-16"><div className="w-8 h-8 rounded-full animate-spin border-4 border-indigo-200 border-t-indigo-600"/></div>
-      ) : filtradas.length===0 ? (
-        <div className="card p-12 text-center">
-          <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3"/>
-          <p className="text-slate-700 dark:text-slate-300 font-medium">¡Todo en orden!</p>
-          <p className="text-slate-400 text-sm mt-1">No hay recordatorios pendientes {filtro!=='todas'?'de prioridad '+filtro:''}</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtradas.map(alerta => {
-            const s = URGENCIA_STYLE[alerta.urgencia]
-            return (
-              <div key={alerta.id} className={`rounded-2xl border p-5 ${s.card}`}>
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                    style={{backgroundColor:alerta.empleado.avatar_color||'#6366f1'}}>
-                    {alerta.empleado.nombre.split(' ').map((n:string)=>n[0]).join('').substring(0,2)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-semibold text-slate-900 dark:text-slate-100">{alerta.titulo}</span>
-                      <span className={`badge ${s.badge} capitalize`}>{alerta.urgencia} prioridad</span>
-                    </div>
-                    <p className="text-sm text-slate-600 dark:text-slate-300">{alerta.descripcion}</p>
-                    <p className="text-xs text-slate-400 mt-1">{alerta.empleado.puesto} · {new Date(alerta.fecha).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</p>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+      {resultado&&(
+        <div className={`card p-4 mb-5 ${resultado.ok?'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200':'bg-red-50 dark:bg-red-900/20 border border-red-200'}`}>
+          <div className="flex items-center gap-2 mb-2"><CheckCircle className={`w-4 h-4 ${resultado.ok?'text-emerald-600':'text-red-500'}`}/><span className="font-semibold text-sm">{resultado.ok?'Completado':'Error'}</span></div>
+          {resultado.resultados&&<div className="grid grid-cols-2 gap-2">{Object.entries(resultado.resultados).map(([k,v])=><div key={k} className="bg-white dark:bg-slate-800 rounded-lg p-2"><p className="text-xs text-slate-400">{k.replace(/_/g,' ')}</p><p className="text-lg font-black">{String(v)}</p></div>)}</div>}
+          {resultado.error&&<p className="text-sm text-red-600">{resultado.error}</p>}
         </div>
       )}
+      <div className="space-y-3 mb-6">
+        {CHECKS.map(c=>{const Icon=c.icon;return(
+          <div key={c.id} className="card p-4 flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:c.color+'15'}}><Icon className="w-5 h-5" style={{color:c.color}}/></div>
+            <div className="flex-1"><div className="flex items-center gap-2"><p className="font-semibold text-sm text-slate-900 dark:text-slate-100">{c.label}</p><span className="badge badge-green text-[10px]">Activo</span></div><p className="text-xs text-slate-400 mt-0.5">{c.desc}</p></div>
+          </div>
+        )})}
+      </div>
+      <div className="card p-4 bg-slate-50 dark:bg-slate-700/30">
+        <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">Programación automática</p>
+        <div className="grid grid-cols-2 gap-3 text-xs text-slate-500">
+          {[{l:'Horario',v:'L-V a las 8:00h'},{l:'Tecnología',v:'Vercel Cron + Edge Fn'},{l:'Destino',v:'Notificaciones en app'},{l:'Anti-duplicados',v:'1 alerta/empleado/día'}].map(x=>(
+            <div key={x.l}><p className="font-medium text-slate-700 dark:text-slate-300">{x.l}</p><p>{x.v}</p></div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

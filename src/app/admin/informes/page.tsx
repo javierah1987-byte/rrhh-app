@@ -8,7 +8,7 @@ const EXPORTS=[
   {id:'solicitudes',title:'Vacaciones y ausencias',desc:'Solicitudes de vacaciones, permisos y bajas',icon:CalendarDays,color:'#f59e0b',view:'export_solicitudes',filename:'vacaciones',filtros:[{label:'Estado',field:'estado',type:'select',options:['todos','pendiente','aprobada','rechazada']}]},
   {id:'gastos',title:'Gastos profesionales',desc:'Gastos por empleado con importe y categoría',icon:Receipt,color:'#0891b2',view:'gastos',filename:'gastos',filtros:[{label:'Mes',field:'fecha',type:'month'}]},
   {id:'empleados',title:'Directorio empleados',desc:'Ficha completa de todos los empleados activos',icon:FileText,color:'#10b981',view:'empleados',filename:'empleados'},
-] as const
+]
 
 function toCSV(data:any[]){
   if(!data||data.length===0)return''
@@ -30,7 +30,7 @@ export default function InformesPage(){
 
   function setF(id:string,field:string,value:string){setFiltros(p=>({...p,[id]:{...(p[id]||{}),[field]:value}}))}
 
-  async function exportar(exp:typeof EXPORTS[number]){
+  async function exportar(exp:any){
     setLoading(exp.id);setSuccess(null)
     try{
       let query=(supabase.from(exp.view as any) as any).select('*')

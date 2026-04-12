@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
-export type Rol = 'admin' | 'empleado'
-export type EstadoEmpleado = 'activo' | 'baja' | 'vacaciones'
+export type Rol = 'owner' | 'admin' | 'manager' | 'empleado'
+export type EstadoEmpleado = 'activo' | 'baja' | 'vacaciones' | 'inactivo'
 export type TipoFichaje = 'entrada' | 'pausa_inicio' | 'pausa_fin' | 'salida'
 export type TipoSolicitud = 'vacaciones' | 'asuntos_propios' | 'permiso_sin_sueldo' | 'cambio_turno' | 'teletrabajo'
 export type EstadoSolicitud = 'pendiente' | 'aprobada' | 'rechazada'

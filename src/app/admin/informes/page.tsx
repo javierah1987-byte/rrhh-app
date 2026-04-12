@@ -1,147 +1,103 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Breadcrumb } from '@/components/Breadcrumb'
-import { SkeletonStats } from '@/components/shared'
-import { Download, TrendingUp, Users, AlertTriangle, Clock } from 'lucide-react'
-import * as XLSX from 'xlsx'
+import { Download, FileText, Clock, CalendarDays, Receipt, Loader2, CheckCircle } from 'lucide-react'
 
-const MESES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const EXPORTS=[
+  {id:'fichajes',title:'Control horario',desc:'Fichajes con entradas, salidas y horas trabajadas',icon:Clock,color:'#6366f1',view:'export_fichajes',filename:'control-horario',filtros:[{label:'Mes',field:'fecha',type:'month'}]},
+  {id:'solicitudes',title:'Vacaciones y ausencias',desc:'Solicitudes de vacaciones, permisos y bajas',icon:CalendarDays,color:'#f59e0b',view:'export_solicitudes',filename:'vacaciones',filtros:[{label:'Estado',field:'estado',type:'select',options:['todos','pendiente','aprobada','rechazada']}]},
+  {id:'gastos',title:'Gastos profesionales',desc:'Gastos por empleado con importe y categoría',icon:Receipt,color:'#0891b2',view:'gastos',filename:'gastos',filtros:[{label:'Mes',field:'fecha',type:'month'}]},
+  {id:'empleados',title:'Directorio empleados',desc:'Ficha completa de todos los empleados activos',icon:FileText,color:'#10b981',view:'empleados',filename:'empleados'},
+] as const
 
-type KPI={activos:number;bajas:number;tasaBaja:number;vacacionesActivas:number;mediaHoras:number;nominaTotal:number;nominaMedia:number}
-
-function KpiCard({label,value,desc,icon,color}:{label:string;value:string;desc?:string;icon:React.ReactNode;color:string}){
-  return(
-    <div className="card p-5">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${color}`}>{icon}</div>
-      <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">{value}</p>
-      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300 mt-1">{label}</p>
-      {desc&&<p className="text-xs text-slate-400 mt-0.5">{desc}</p>}
-    </div>
-  )
+function toCSV(data:any[]){
+  if(!data||data.length===0)return''
+  const h=Object.keys(data[0])
+  return[h.join(','),...data.map(r=>h.map(k=>{const v=r[k];if(v==null)return'';if(typeof v==='string'&&v.includes(','))return'"'+v+'"';return String(v)}).join(','))].join('
+')
+}
+function dl(content:string,filename:string,type:string){
+  const b=new Blob(['﻿'+content],{type})
+  const u=URL.createObjectURL(b),a=document.createElement('a')
+  a.href=u;a.download=filename+'-'+new Date().toISOString().split('T')[0]+(type.includes('json')?'.json':'.csv');a.click();URL.revokeObjectURL(u)
 }
 
-function MiniBar({pct,color}:{pct:number;color:string}){
-  return <div className="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-700" style={{width:`${Math.min(pct,100)}%`,background:color}}/></div>
-}
+export default function InformesPage(){
+  const [loading,setLoading]=useState<string|null>(null)
+  const [success,setSuccess]=useState<string|null>(null)
+  const [filtros,setFiltros]=useState<Record<string,Record<string,string>>>({})
+  const [fmt,setFmt]=useState<'csv'|'json'>('csv')
 
-export default function AdminInformesPage(){
-  const [kpis,setKpis]=useState<KPI|null>(null)
-  const [depStats,setDepStats]=useState<{dep:string;count:number}[]>([])
-  const [loading,setLoading]=useState(true)
-  const [exporting,setExporting]=useState(false)
-  const [mesExport,setMesExport]=useState(new Date().getMonth()+1)
-  const [anioExport,setAnioExport]=useState(new Date().getFullYear())
+  function setF(id:string,field:string,value:string){setFiltros(p=>({...p,[id]:{...(p[id]||{}),[field]:value}}))}
 
-  useEffect(()=>{
-    const hoy=new Date().toISOString().slice(0,10)
-    Promise.all([
-      supabase.from('empleados').select('id,departamento,estado'),
-      supabase.from('bajas').select('id').eq('activa',true),
-      supabase.from('solicitudes').select('id').eq('estado','aprobada').lte('fecha_inicio',hoy).gte('fecha_fin',hoy),
-      supabase.from('nominas').select('liquido,salario_base').gte('anio',new Date().getFullYear()-1),
-      supabase.from('fichajes').select('fecha,tipo').eq('tipo','entrada').gte('fecha',new Date(new Date().setDate(1)).toISOString().slice(0,10)),
-    ]).then(([{data:emps},{data:bajas},{data:vacs},{data:noms},{data:fichs}])=>{
-      const total=emps?.length||0
-      const activos=emps?.filter(e=>e.estado==='activo').length||0
-      const bajasN=bajas?.length||0
-      const tasaBaja=total>0?Math.round((bajasN/total)*1000)/10:0
-      const vacHoy=vacs?.length||0
-      const nominaTotal=noms?.reduce((s,n)=>s+(n.liquido||0),0)||0
-      const nominaMedia=noms?.length?Math.round(nominaTotal/noms.length):0
-      const diasFichs=new Set(fichs?.map(f=>f.fecha)||[]).size
-      setKpis({activos,bajas:bajasN,tasaBaja,vacacionesActivas:vacHoy,mediaHoras:Math.round(diasFichs*8),nominaTotal,nominaMedia})
-      // Stats por departamento
-      const byDep:Record<string,number>={}
-      emps?.filter(e=>e.estado==='activo').forEach(e=>{ if(e.departamento) byDep[e.departamento]=(byDep[e.departamento]||0)+1 })
-      setDepStats(Object.entries(byDep).sort((a,b)=>b[1]-a[1]).map(([dep,count])=>({dep,count})))
-      setLoading(false)
-    })
-  },[])
-
-  const exportExcel=async()=>{
-    setExporting(true)
-    const {data}=await supabase.from('nominas').select('*,empleados(nombre,departamento,puesto,email)').eq('mes',mesExport).eq('anio',anioExport)
-    if(!data?.length){alert('No hay nóminas para ese período');setExporting(false);return}
-    const rows=data.map(n=>({
-      'Nombre':(n.empleados as any).nombre,'Email':(n.empleados as any).email,'Departamento':(n.empleados as any).departamento||'',
-      'Mes':MESES[n.mes-1],'Año':n.anio,'Salario Base':n.salario_base,'Complementos':n.complementos,
-      'IRPF %':n.irpf_pct,'SS %':n.ss_pct,'Líquido':n.liquido
-    }))
-    const ws=XLSX.utils.json_to_sheet(rows)
-    const wb=XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb,ws,`Nóminas ${MESES[mesExport-1]}`)
-    XLSX.writeFile(wb,`nominas_${anioExport}_${String(mesExport).padStart(2,'0')}.xlsx`)
-    setExporting(false)
+  async function exportar(exp:typeof EXPORTS[number]){
+    setLoading(exp.id);setSuccess(null)
+    try{
+      let query=(supabase.from(exp.view as any) as any).select('*')
+      const f=filtros[exp.id]||{}
+      if(f.fecha&&exp.id!=='empleados'){
+        const[y,m]=f.fecha.split('-').map(Number)
+        if(y&&m){const ini=y+'-'+String(m).padStart(2,'0')+'-01',fin=new Date(y,m,0).toISOString().split('T')[0];query=query.gte('fecha',ini).lte('fecha',fin)}
+      }
+      if(f.estado&&f.estado!=='todos')query=query.eq('estado',f.estado)
+      if(exp.id==='empleados')query=(supabase.from('empleados') as any).select('nombre,email,telefono,departamento,puesto,rol,estado,tipo_contrato,jornada_horas,fecha_alta').eq('estado','activo')
+      const{data,error}=await query.limit(5000)
+      if(error)throw error
+      if(!data||data.length===0){alert('Sin datos para exportar');setLoading(null);return}
+      fmt==='csv'?dl(toCSV(data),exp.filename,'text/csv'):dl(JSON.stringify(data,null,2),exp.filename,'application/json')
+      setSuccess(exp.id);setTimeout(()=>setSuccess(null),3000)
+    }catch(e:any){alert('Error: '+(e.message||'Error desconocido'))}
+    setLoading(null)
   }
-
-  const exportEmpleados=async()=>{
-    const {data}=await supabase.from('empleados').select('nombre,email,departamento,puesto,estado,tipo_contrato,fecha_alta,telefono,fecha_nacimiento')
-    const ws=XLSX.utils.json_to_sheet(data||[])
-    const wb=XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb,ws,'Empleados')
-    XLSX.writeFile(wb,'empleados_nexohr.xlsx')
-  }
-
-  const maxDep=Math.max(...depStats.map(d=>d.count),1)
-
-  if(loading) return <div className="space-y-5"><SkeletonStats cols={4}/><SkeletonStats cols={3}/></div>
 
   return(
-    <div className="space-y-6 animate-fade-in">
-      <Breadcrumb/>
-      <h1 className="page-title">📊 Informes y KPIs</h1>
-
-      {/* KPIs principales */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 stagger">
-        <KpiCard label="Empleados activos" value={String(kpis?.activos||0)} icon={<Users className="w-5 h-5 text-indigo-600"/>} color="bg-indigo-50 dark:bg-indigo-900/30"/>
-        <KpiCard label="Tasa de absentismo" value={`${kpis?.tasaBaja||0}%`} desc={`${kpis?.bajas||0} bajas activas`} icon={<AlertTriangle className="w-5 h-5 text-red-500"/>} color="bg-red-50 dark:bg-red-900/30"/>
-        <KpiCard label="De vacaciones hoy" value={String(kpis?.vacacionesActivas||0)} icon={<TrendingUp className="w-5 h-5 text-emerald-600"/>} color="bg-emerald-50 dark:bg-emerald-900/30"/>
-        <KpiCard label="Coste nómina medio" value={(kpis?.nominaMedia||0).toLocaleString('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0})} desc="Líquido por empleado" icon={<Clock className="w-5 h-5 text-amber-600"/>} color="bg-amber-50 dark:bg-amber-900/30"/>
+    <div>
+      <div className="page-header mb-6">
+        <div>
+          <h1 className="page-title flex items-center gap-2"><Download className="w-5 h-5 text-indigo-500"/>Informes y exportación</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Descarga tus datos en CSV (Excel) o JSON</p>
+        </div>
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-xl p-1">
+          {(['csv','json'] as const).map(f=>(
+            <button key={f} onClick={()=>setFmt(f)} className={"px-4 py-1.5 rounded-lg text-sm font-semibold transition-all "+(fmt===f?'bg-white dark:bg-slate-600 text-slate-900 dark:text-slate-100 shadow-sm':'text-slate-500 dark:text-slate-400')}>
+              .{f.toUpperCase()}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Por departamento */}
-      {depStats.length>0&&(
-        <div className="card p-5">
-          <h2 className="font-bold text-slate-900 dark:text-slate-100 mb-4">Distribución por departamento</h2>
-          <div className="space-y-3">
-            {depStats.map(d=>(
-              <div key={d.dep} className="space-y-1">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-slate-700 dark:text-slate-300">{d.dep}</span>
-                  <span className="text-slate-500 dark:text-slate-400 tabular-nums">{d.count} empleados</span>
-                </div>
-                <MiniBar pct={(d.count/maxDep)*100} color="#6366f1"/>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {fmt==='csv'&&<div className="mb-5 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-700"><p className="text-xs text-indigo-700 dark:text-indigo-300">Los archivos CSV se abren directamente en <strong>Excel</strong> y <strong>Google Sheets</strong>. Incluyen BOM UTF-8 para caracteres especiales (áéíóúñ…).</p></div>}
 
-      {/* Exportaciones */}
-      <div className="card p-5">
-        <h2 className="font-bold text-slate-900 dark:text-slate-100 mb-4 flex items-center gap-2"><Download className="w-4 h-4 text-indigo-500"/>Exportar datos</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 bg-slate-50 dark:bg-slate-700/40 rounded-xl space-y-3">
-            <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm">Nóminas por período</p>
-            <div className="flex gap-2">
-              <select value={mesExport} onChange={e=>setMesExport(+e.target.value)} className="input flex-1 text-sm">
-                {MESES.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
-              </select>
-              <select value={anioExport} onChange={e=>setAnioExport(+e.target.value)} className="input w-24 text-sm">
-                {[2025,2026,2027].map(a=><option key={a}>{a}</option>)}
-              </select>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {EXPORTS.map(exp=>{
+          const Icon=exp.icon,isL=loading===exp.id,isDone=success===exp.id,f=filtros[exp.id]||{}
+          return(
+            <div key={exp.id} className="card p-5">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{background:exp.color+'15'}}><Icon className="w-5 h-5" style={{color:exp.color}}/></div>
+                <div className="flex-1 min-w-0"><h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">{exp.title}</h3><p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{exp.desc}</p></div>
+              </div>
+              {'filtros' in exp && (exp as any).filtros&&(
+                <div className="space-y-2 mb-4">
+                  {(exp as any).filtros.map((filt:any)=>(
+                    <div key={filt.field} className="flex items-center gap-2">
+                      <label className="text-xs text-slate-500 w-14 flex-shrink-0">{filt.label}</label>
+                      {filt.type==='month'&&<input type="month" value={f[filt.field]||new Date().toISOString().substring(0,7)} onChange={e=>setF(exp.id,filt.field,e.target.value)} className="input flex-1 text-sm py-1.5"/>}
+                      {filt.type==='select'&&<select value={f[filt.field]||'todos'} onChange={e=>setF(exp.id,filt.field,e.target.value)} className="input flex-1 text-sm py-1.5">{filt.options.map((o:string)=><option key={o} value={o}>{o==='todos'?'Todos':o}</option>)}</select>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={()=>exportar(exp)} disabled={isL} className={"w-full py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 "+(isDone?'bg-emerald-500 text-white':'text-white hover:opacity-90')} style={isDone?{}:{background:exp.color}}>
+                {isL?<><Loader2 className="w-4 h-4 animate-spin"/>Generando…</>:isDone?<><CheckCircle className="w-4 h-4"/>¡Descargado!</>:<><Download className="w-4 h-4"/>Descargar .{fmt.toUpperCase()}</>}
+              </button>
             </div>
-            <button onClick={exportExcel} disabled={exporting} className="btn-primary w-full text-sm">
-              {exporting?<div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin"/>:<><Download className="w-4 h-4"/>Exportar Excel</>}
-            </button>
-          </div>
-          <div className="p-4 bg-slate-50 dark:bg-slate-700/40 rounded-xl space-y-3">
-            <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm">Listado de empleados</p>
-            <p className="text-xs text-slate-400">Exporta toda la plantilla con datos de contacto y contrato.</p>
-            <button onClick={exportEmpleados} className="btn-secondary w-full text-sm"><Download className="w-4 h-4"/>Exportar empleados</button>
-          </div>
-        </div>
+          )
+        })}
+      </div>
+
+      <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-700/30 rounded-xl">
+        <p className="text-xs text-slate-400 leading-relaxed"><strong className="text-slate-600 dark:text-slate-300">Aviso:</strong> Los informes contienen datos personales protegidos por el RGPD. El acceso queda registrado en el audit log.</p>
       </div>
     </div>
   )

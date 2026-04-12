@@ -7,7 +7,7 @@ import {
   CreditCard, CalendarDays, Heart, Receipt, AlertCircle,
   Shield, Users, LogOut, Sun, Moon, Menu, X, Bell,
   MessageSquare, ChevronRight, Timer, Briefcase, Wallet,
-  Megaphone
+  Megaphone, Lock
 } from 'lucide-react'
 
 type NavGroup = { id:string; label:string; icon:any; color:string; items:{icon:any;label:string;href:string;badge?:boolean;onlyManager?:boolean}[] }

@@ -7,13 +7,10 @@ const inter = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-int
 
 export const metadata: Metadata = {
   title: 'Nexo HR',
-  description: 'Gestión de recursos humanos',
+  description: 'Sistema de Gestión de Recursos Humanos',
   manifest: '/manifest.json',
   themeColor: '#6366f1',
   appleWebApp: { capable: true, statusBarStyle: 'default', title: 'Nexo HR' },
-  viewport: { width: 'device-width', initialScale: 1, maximumScale: 1 },
-},
-  description: 'Sistema de Gestión de Recursos Humanos',
   openGraph: {
     title: 'Nexo HR',
     description: 'Portal de RRHH para tu equipo',
@@ -21,9 +18,7 @@ export const metadata: Metadata = {
     locale: 'es_ES',
   },
   icons: {
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-    ],
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
   },
 }
 
@@ -31,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={inter.variable} suppressHydrationWarning>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
         <script
           dangerouslySetInnerHTML={{
             __html: `try{if(localStorage.getItem('nexohr-dark')==='true'){document.documentElement.classList.add('dark')}}catch(e){}`

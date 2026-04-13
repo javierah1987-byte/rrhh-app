@@ -40,17 +40,29 @@ export default function FichajePage(){
 
   async function obtenerGeo(){
     setGeoLoad(true);setGeoErr('')
-    return new Promise<{lat:number;lng:number;dir?:string}|null>(resolve=>{
-      if(!navigator.geolocation){setGeoErr('Navegador sin soporte de geolocalización');setGeoLoad(false);resolve(null);return}
+    return new Promise<{lat:number;lng:number;dir?:string;precision?:number}|null>(resolve=>{
+      if(!navigator.geolocation){setGeoErr('Navegador sin soporte GPS');setGeoLoad(false);resolve(null);return}
       navigator.geolocation.getCurrentPosition(
         async pos=>{
-          const lat=pos.coords.latitude,lng=pos.coords.longitude
+          const lat=pos.coords.latitude,lng=pos.coords.longitude,precision=Math.round(pos.coords.accuracy)
           let dir=''
-          try{const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);const d=await r.json();dir=d.display_name?.split(',').slice(0,3).join(', ')||''}catch{}
-          const res={lat,lng,dir};setGeo(res);setGeoLoad(false);resolve(res)
+          try{
+            const r=await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=es`,
+              {headers:{'User-Agent':'NexoHR/1.0 (pruebasgrupoaxen.com)','Accept':'application/json'},signal:AbortSignal.timeout(8000)}
+            )
+            if(r.ok){const d=await r.json();dir=d.display_name?.split(',').slice(0,3).join(', ')||''}
+          }catch(e:any){
+            // Fallback: mostrar coordenadas si Nominatim falla
+            dir=`${lat.toFixed(5)}, ${lng.toFixed(5)}`
+          }
+          const res={lat,lng,dir,precision};setGeo(res);setGeoLoad(false);resolve(res)
         },
-        err=>{setGeoErr(err.code===1?'Permiso de ubicación denegado':'No se pudo obtener ubicación');setGeoLoad(false);resolve(null)},
-        {timeout:10000,enableHighAccuracy:true}
+        err=>{
+          const msg=err.code===1?'Permiso GPS denegado. Actívalo en ajustes del navegador.':err.code===2?'No se pudo obtener señal GPS':'Tiempo de espera GPS agotado'
+          setGeoErr(msg);setGeoLoad(false);resolve(null)
+        },
+        {timeout:15000,enableHighAccuracy:true,maximumAge:30000}
       )
     })
   }
@@ -58,7 +70,7 @@ export default function FichajePage(){
   async function fichar(tipo:string){
     setAccion(true)
     const pos=await obtenerGeo()
-    await supabase.from('fichajes').insert({empleado_id:empId,tipo,fecha:new Date().toISOString().split('T')[0],timestamp:new Date().toISOString(),...(pos?{latitud:pos.lat,longitud:pos.lng,direccion:pos.dir}:{})})
+    await supabase.from('fichajes').insert({empleado_id:empId,tipo,fecha:new Date().toISOString().split('T')[0],timestamp:new Date().toISOString(),...(pos?{latitud:pos.lat,longitud:pos.lng,direccion:pos.dir||null,precision_metros:pos.precision||null}:{})})
     await cargar();setAccion(false)
   }
 

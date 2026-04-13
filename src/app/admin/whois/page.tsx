@@ -21,7 +21,7 @@ export default function WhoisPage(){
     const{data:emps}=await supabase.from('empleados').select('id,nombre,avatar_color').eq('estado','activo')
     const{data:fichs}=await supabase.from('fichajes').select('empleado_id,tipo,timestamp,latitud,longitud,direccion').eq('fecha',hoy).order('timestamp',{ascending:false})
 
-    const map=new Map<string,typeof fichs extends null?never:NonNullable<typeof fichs>[0]>()
+    const map=new Map<string,any>()
     fichs?.forEach(f=>{if(!map.has(f.empleado_id))map.set(f.empleado_id,f)})
 
     const pres:Presencia[]=[],aus:Ausente[]=[]

@@ -7,7 +7,7 @@ import {
   CreditCard, CalendarDays, Heart, Receipt, AlertCircle,
   Shield, Users, LogOut, Sun, Moon, Menu, X, Bell,
   MessageSquare, ChevronRight, Timer, Briefcase, Wallet,
-  Megaphone, Lock
+  Megaphone, Lock, PenLine
 } from 'lucide-react'
 
 type NavGroup = { id:string; label:string; icon:any; color:string; items:{icon:any;label:string;href:string;badge?:boolean;onlyManager?:boolean}[] }
@@ -36,6 +36,7 @@ const GROUPS: NavGroup[] = [
     { icon:Heart,    label:'Clima laboral', href:'/empleado/encuestas' },
     { icon:Shield,   label:'Privacidad',    href:'/empleado/privacidad' },
     { icon:Users,    label:'Mi Equipo',     href:'/empleado/equipo', onlyManager:true },
+    { icon:PenLine,  label:'Firmas',        href:'/empleado/firmas' },
     { icon:Lock,     label:'Denuncias',     href:'/empleado/denuncias' },
   ]},
 ]

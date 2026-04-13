@@ -40,6 +40,7 @@ const GROUPS: NavGroup[] = [
     { icon:Receipt,    label:'Gastos',          href:'/admin/gastos' },
     { icon:FileText,   label:'Documentos',      href:'/admin/documentos' },
     { icon:Briefcase,  label:'Petición docs', href:'/admin/solicitudes-documentos' },
+      { icon:PenLine,    label:'Firmas',         href:'/admin/firmas' },
     { icon:BarChart2,  label:'Informes',        href:'/admin/informes' },
       { icon:Building2,  label:'Mi empresa',      href:'/admin/empresa' },
   ]},

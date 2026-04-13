@@ -9,7 +9,7 @@ import {
   Briefcase, ClipboardList, Star, Gift, LogOut,
   ChevronDown, Sun, Moon, Search, Menu, X, Wifi,
   AlertCircle, Receipt, Shield, Building2,
-  Timer, UserCheck, Wallet, Megaphone, Lock, PenLine,
+  Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Briefcase, Target,
   ChevronRight, Settings, CalendarRange, AlertTriangle
 } from 'lucide-react'
 
@@ -29,6 +29,9 @@ const GROUPS: NavGroup[] = [
     { icon:Building2, label:'Centros',     href:'/admin/centros' },
     { icon:Star,      label:'Evaluaciones',href:'/admin/evaluaciones' },
   ]},
+  { id:'reclutamiento', label:'Reclutamiento', icon:Briefcase, color:'#8b5cf6', items:[
+    { icon:Briefcase, label:'Vacantes',    href:'/admin/reclutamiento' },
+  ]},
   { id:'ausencias', label:'Ausencias', icon:CalendarRange, color:'#f59e0b', items:[
     { icon:CalendarDays, label:'Solicitudes', href:'/admin/vacaciones', badge:true },
     { icon:FileText,     label:'Bajas',        href:'/admin/bajas' },
@@ -42,6 +45,7 @@ const GROUPS: NavGroup[] = [
     { icon:Briefcase,  label:'Petición docs', href:'/admin/solicitudes-documentos' },
       { icon:PenLine,    label:'Firmas',         href:'/admin/firmas' },
     { icon:BarChart2,  label:'Informes',        href:'/admin/informes' },
+      { icon:Target,      label:'OKR',             href:'/admin/okr' },
       { icon:Building2,  label:'Mi empresa',      href:'/admin/empresa' },
   ]},
   { id:'comunicacion', label:'Comunicación', icon:Megaphone, color:'#ec4899', items:[

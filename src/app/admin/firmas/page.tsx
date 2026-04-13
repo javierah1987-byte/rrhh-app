@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { PenLine, Plus, CheckCircle, X, Loader2, Eye, Send, FileText } from 'lucide-react'
 
-type SF={id:string;estado:string;created_at:string;firmado_at:string|null;firma_imagen:string|null;firma_tipo:string|null;firma_nombre:string|null;mensaje:string|null;documentos:{nombre:string}|null;empleados:{nombre:string;avatar_color:string}|null}
+type SF={id:string;estado:string;created_at:string;firmado_at:string|null;firma_imagen:string|null;firma_tipo:string|null;firma_nombre:string|null;mensaje:string|null;documentos:{id:string;nombre:string}|null;empleados:{id:string;nombre:string;avatar_color:string}|null}
 type Doc={id:string;nombre:string}
 type Emp={id:string;nombre:string;avatar_color:string}
 
@@ -20,7 +20,7 @@ export default function AdminFirmasPage(){
 
   const cargar=useCallback(async()=>{
     const[{data:fs},{data:ds},{data:es}]=await Promise.all([
-      supabase.from('solicitudes_firma').select('*,documentos(nombre),empleados(nombre,avatar_color)').order('created_at',{ascending:false}),
+      supabase.from('solicitudes_firma').select('*,documentos(id,nombre),empleados(id,nombre,avatar_color)').order('created_at',{ascending:false}),
       supabase.from('documentos').select('id,nombre').order('nombre'),
       supabase.from('empleados').select('id,nombre,avatar_color').in('rol',['empleado','manager']).eq('estado','activo').order('nombre'),
     ])
@@ -33,23 +33,23 @@ export default function AdminFirmasPage(){
     setSaving(true)
     const{data:{user}}=await supabase.auth.getUser()
     const{data:emp}=await supabase.from('empleados').select('id').eq('user_id',user!.id).single()
-    await supabase.from('solicitudes_firma').insert({documento_id:form.documento_id,empleado_id:form.empleado_id,solicitante_id:emp?.id||null,mensaje:form.mensaje.trim()||null})
+    await supabase.from('solicitudes_firma').insert({documento_id:form.documento_id,empleado_id:form.empleado_id,solicitante_id:(emp as any)?.id||null,mensaje:form.mensaje.trim()||null})
     setSaving(false);setModal(false);setForm({documento_id:'',empleado_id:'',mensaje:''});await cargar()
   }
 
   const filtradas=firmas.filter(f=>filtro==='todos'||f.estado===filtro)
-  const stats={pend:firmas.filter(f=>f.estado==='pendiente').length,firm:firmas.filter(f=>f.estado==='firmado').length}
+  const stats={pendientes:firmas.filter(f=>f.estado==='pendiente').length,firmadas:firmas.filter(f=>f.estado==='firmado').length}
 
   return(
     <div>
       <div className="page-header mb-5">
         <div><h1 className="page-title flex items-center gap-2"><PenLine className="w-5 h-5 text-indigo-500"/>Firmas electrónicas</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{stats.pend} pendientes · {stats.firm} completadas</p></div>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{stats.pendientes} pendientes · {stats.firmadas} completadas</p></div>
         <button onClick={()=>setModal(true)} className="btn-primary flex items-center gap-2"><Plus className="w-4 h-4"/>Solicitar firma</button>
       </div>
 
       <div className="grid grid-cols-3 gap-3 mb-5">
-        {[{l:'Pendientes',v:stats.pend,c:'text-amber-600',b:'bg-amber-50 dark:bg-amber-900/20'},{l:'Firmadas',v:stats.firm,c:'text-emerald-600',b:'bg-emerald-50 dark:bg-emerald-900/20'},{l:'Total',v:firmas.length,c:'text-indigo-600',b:'bg-indigo-50 dark:bg-indigo-900/20'}].map(s=>(
+        {[{l:'Pendientes',v:stats.pendientes,c:'text-amber-600',b:'bg-amber-50 dark:bg-amber-900/20'},{l:'Firmadas',v:stats.firmadas,c:'text-emerald-600',b:'bg-emerald-50 dark:bg-emerald-900/20'},{l:'Total',v:firmas.length,c:'text-indigo-600',b:'bg-indigo-50 dark:bg-indigo-900/20'}].map(s=>(
           <div key={s.l} className={`card p-4 text-center ${s.b}`}><p className={`text-2xl font-black ${s.c}`}>{s.v}</p><p className="text-xs text-slate-500 mt-0.5">{s.l}</p></div>
         ))}
       </div>
@@ -69,10 +69,12 @@ export default function AdminFirmasPage(){
             const doc=(f as any).documentos,emp=(f as any).empleados
             return(
               <div key={f.id} className="flex items-center gap-3 p-4">
-                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{backgroundColor:emp?.avatar_color||'#6366f1'}}>{emp?.nombre?.charAt(0)||'?'}</div>
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{backgroundColor:emp?.avatar_color||'#6366f1'}}>
+                  {emp?.nombre?.charAt(0)||'?'}
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{emp?.nombre||'Empleado'} · <span className="font-normal text-slate-500">{doc?.nombre||'Documento'}</span></p>
-                  <p className="text-xs text-slate-400 mt-0.5">{new Date(f.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}{f.firmado_at&&' · Firmado: '+new Date(f.firmado_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">{new Date(f.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}{f.firmado_at?' · Firmado: '+new Date(f.firmado_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'}):''}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className={`badge text-xs ${f.estado==='firmado'?'badge-green':f.estado==='pendiente'?'badge-amber':'badge-red'}`}>{f.estado}</span>
@@ -114,7 +116,7 @@ export default function AdminFirmasPage(){
               {preview.firma_nombre&&<p>Nombre: <span className="font-medium">{preview.firma_nombre}</span></p>}
               <p>Fecha: <span className="font-medium">{new Date(preview.firmado_at!).toLocaleString('es-ES')}</span></p>
             </div>
-            <div className="mt-3 p-2 bg-emerald-50 rounded-lg"><p className="text-xs text-emerald-700 flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 flex-shrink-0"/>Firma válida · eIDAS (UE) 910/2014</p></div>
+            <div className="mt-3 p-2 bg-emerald-50 rounded-lg"><p className="text-xs text-emerald-700 flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5 flex-shrink-0"/>Firma electrónica válida · eIDAS (UE) 910/2014</p></div>
           </div>
         </div>
       )}

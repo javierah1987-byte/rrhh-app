@@ -24,7 +24,7 @@ export default function FirmasPage(){
     setNombre((emp as any).nombre)
     const{data}=await supabase.from('solicitudes_firma')
       .select('*,documentos(id,nombre),solicitante:solicitante_id(nombre)')
-      .eq('empleado_id',emp.id).order('created_at',{ascending:false})
+      .eq('empleado_id',(emp as any).id).order('created_at',{ascending:false})
     setSols((data||[]) as SF[]);setLoading(false)
   },[])
   useEffect(()=>{cargar()},[cargar])
@@ -60,10 +60,7 @@ export default function FirmasPage(){
       ctx.fillStyle='#1e293b';ctx.font='italic 52px Georgia,serif';ctx.textAlign='center';ctx.textBaseline='middle'
       ctx.fillText(texto,300,75);img=cv.toDataURL('image/png')
     }
-    await supabase.from('solicitudes_firma').update({
-      estado:'firmado',firma_imagen:img,firma_tipo:modo,
-      firma_nombre:modo==='texto'?texto:nombre,firmado_at:new Date().toISOString()
-    }).eq('id',modal.id)
+    await supabase.from('solicitudes_firma').update({estado:'firmado',firma_imagen:img,firma_tipo:modo,firma_nombre:modo==='texto'?texto:nombre,firmado_at:new Date().toISOString()}).eq('id',modal.id)
     await cargar();setModal(null);setFirmando(false)
   }
 
@@ -75,7 +72,6 @@ export default function FirmasPage(){
         <div><h1 className="page-title flex items-center gap-2"><PenLine className="w-5 h-5 text-indigo-500"/>Firma electrónica</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{pendientes>0?`${pendientes} pendiente(s) de firma`:'Todos los documentos firmados'}</p></div>
       </div>
-
       {loading?<div className="flex justify-center py-16"><div className="w-8 h-8 rounded-full animate-spin border-4 border-indigo-200 border-t-indigo-600"/></div>
       :sols.length===0?<div className="card p-12 text-center"><PenLine className="w-10 h-10 text-slate-300 mx-auto mb-3"/><p className="text-slate-500">No tienes documentos pendientes de firma</p></div>
       :<div className="space-y-3">
@@ -89,7 +85,7 @@ export default function FirmasPage(){
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">{doc?.nombre||'Documento'}</p>
-                <p className="text-xs text-slate-400 mt-0.5">Solicitado por {sol?.nombre||'Admin'} · {new Date(s.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</p>
+                <p className="text-xs text-slate-400 mt-0.5">Por {sol?.nombre||'Admin'} · {new Date(s.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</p>
                 {s.mensaje&&<p className="text-xs text-slate-500 mt-1 italic">"{s.mensaje}"</p>}
                 {s.estado==='firmado'&&<p className="text-xs text-emerald-600 mt-1 flex items-center gap-1"><CheckCircle className="w-3 h-3"/>Firmado el {new Date(s.firmado_at!).toLocaleDateString('es-ES',{day:'numeric',month:'short',year:'numeric'})}</p>}
                 {exp&&<p className="text-xs text-red-500 mt-1 flex items-center gap-1"><Clock className="w-3 h-3"/>Plazo vencido</p>}
@@ -133,7 +129,7 @@ export default function FirmasPage(){
                   {texto&&<div className="mt-2 p-3 bg-slate-50 dark:bg-slate-700 rounded-xl"><p className="text-slate-400 text-xs mb-1">Vista previa:</p><p className="text-2xl text-slate-800 dark:text-slate-200" style={{fontFamily:'Georgia,serif',fontStyle:'italic'}}>{texto}</p></div>}
                 </div>
               )}
-              <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl"><p className="text-xs text-indigo-700 dark:text-indigo-300">Al firmar confirmas que has leído el documento. Válido según Reglamento eIDAS (UE) 910/2014.</p></div>
+              <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl"><p className="text-xs text-indigo-700 dark:text-indigo-300">Al firmar confirmas que has leído el documento. Válido según eIDAS (UE) 910/2014.</p></div>
               <div className="flex gap-3">
                 <button onClick={()=>setModal(null)} className="btn-secondary flex-1">Cancelar</button>
                 <button onClick={firmar} disabled={firmando||(modo==='canvas'&&!trazado)||(modo==='texto'&&!texto.trim())} className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">

@@ -9,7 +9,7 @@ import {
   Briefcase, ClipboardList, Star, Gift, LogOut,
   ChevronDown, Sun, Moon, Search, Menu, X, Wifi,
   AlertCircle, Receipt, Shield, Building2,
-  Timer, UserCheck, Wallet, Megaphone, Lock,
+  Timer, UserCheck, Wallet, Megaphone, Lock, PenLine,
   ChevronRight, Settings, CalendarRange, AlertTriangle
 } from 'lucide-react'
 
@@ -50,7 +50,8 @@ const GROUPS: NavGroup[] = [
     { icon:Gift,          label:'Recordatorios',href:'/admin/recordatorios' },
   ]},
   { id:'cumplimiento', label:'Cumplimiento', icon:Lock, color:'#8b5cf6', items:[
-    { icon:Shield,    label:'RGPD',      href:'/admin/rgpd' },
+    { icon:Shield,         label:'RGPD',           href:'/admin/rgpd' },
+    { icon:PenLine,        label:'Firmas',          href:'/admin/firmas' },
     { icon:AlertTriangle, label:'Denuncias', href:'/admin/denuncias' },
   ]},
 ]

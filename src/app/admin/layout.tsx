@@ -41,6 +41,7 @@ const GROUPS: NavGroup[] = [
     { icon:FileText,   label:'Documentos',      href:'/admin/documentos' },
     { icon:Briefcase,  label:'Petición docs', href:'/admin/solicitudes-documentos' },
     { icon:BarChart2,  label:'Informes',        href:'/admin/informes' },
+      { icon:Building2,  label:'Mi empresa',      href:'/admin/empresa' },
   ]},
   { id:'comunicacion', label:'Comunicación', icon:Megaphone, color:'#ec4899', items:[
     { icon:Bell,          label:'Avisos',       href:'/admin/avisos' },

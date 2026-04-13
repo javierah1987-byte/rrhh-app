@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Wifi, RefreshCw, MapPin, Users, UserCheck, TrendingUp, Map } from 'lucide-react'
+import { Wifi, RefreshCw, MapPin, Users, UserCheck, TrendingUp, Map as MapIcon } from 'lucide-react'
 
 type Presencia={id:string;nombre:string;avatar_color:string;entrada:string;latitud?:number;longitud?:number;direccion?:string}
 type Ausente={id:string;nombre:string;avatar_color:string;ultimo_fichaje?:string}
@@ -21,12 +21,12 @@ export default function WhoisPage(){
     const{data:emps}=await supabase.from('empleados').select('id,nombre,avatar_color').eq('estado','activo')
     const{data:fichs}=await supabase.from('fichajes').select('empleado_id,tipo,timestamp,latitud,longitud,direccion').eq('fecha',hoy).order('timestamp',{ascending:false})
 
-    const map=new Map<string,any>()
-    fichs?.forEach(f=>{if(!map.has(f.empleado_id))map.set(f.empleado_id,f)})
+    const fichajesMap=new Map<string,any>()
+    fichs?.forEach(f=>{if(!fichajesMap.has(f.empleado_id))fichajesMap.set(f.empleado_id,f)})
 
     const pres:Presencia[]=[],aus:Ausente[]=[]
     emps?.forEach(e=>{
-      const ult=map.get(e.id)
+      const ult=fichajesMap.get(e.id)
       if(ult?.tipo==='entrada'){
         pres.push({id:e.id,nombre:e.nombre,avatar_color:e.avatar_color,entrada:ult.timestamp,latitud:ult.latitud||undefined,longitud:ult.longitud||undefined,direccion:ult.direccion||undefined})
       } else {
@@ -99,7 +99,7 @@ export default function WhoisPage(){
         </div>
         <div className="flex items-center gap-2">
           <button onClick={()=>setTab(t=>t==='lista'?'mapa':'lista')} className="btn-secondary flex items-center gap-2">
-            {tab==='lista'?<><Map className="w-4 h-4"/>Ver mapa</>:<><Users className="w-4 h-4"/>Ver lista</>}
+            {tab==='lista'?<><MapIcon className="w-4 h-4"/>Ver mapa</>:<><Users className="w-4 h-4"/>Ver lista</>}
           </button>
           <button onClick={cargar} className="btn-secondary flex items-center gap-2"><RefreshCw className="w-4 h-4"/>Actualizar</button>
         </div>

@@ -66,7 +66,7 @@ export default function AdminFirmasPage(){
       :<div className="card overflow-hidden">
         <div className="divide-y divide-slate-100 dark:divide-slate-700">
           {filtradas.map(f=>{
-            const doc=(f as any).documentos,emp=(f as any).empleados
+            const doc=(f as any).documentos,emp=(f as any).empleado
             return(
               <div key={f.id} className="flex items-center gap-3 p-4">
                 <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{backgroundColor:emp?.avatar_color||'#6366f1'}}>
@@ -109,7 +109,7 @@ export default function AdminFirmasPage(){
       {preview&&(
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={()=>setPreview(null)}>
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full" onClick={e=>e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-slate-900 dark:text-slate-100">Firma de {(preview as any).empleados?.nombre}</h3><button onClick={()=>setPreview(null)}><X className="w-4 h-4 text-slate-400"/></button></div>
+            <div className="flex items-center justify-between mb-4"><h3 className="font-bold text-slate-900 dark:text-slate-100">Firma de {(preview as any).empleado?.nombre}</h3><button onClick={()=>setPreview(null)}><X className="w-4 h-4 text-slate-400"/></button></div>
             <div className="bg-slate-50 rounded-xl p-3 border border-slate-200"><img src={preview.firma_imagen!} alt="Firma" className="w-full h-auto"/></div>
             <div className="mt-3 space-y-1 text-xs text-slate-500">
               <p>Tipo: <span className="font-medium capitalize">{preview.firma_tipo}</span></p>

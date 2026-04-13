@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Wifi, RefreshCw, MapPin, Users, UserCheck, TrendingUp, Map as MapIcon } from 'lucide-react'
+import { Wifi, RefreshCw, MapPin, Users, UserCheck, TrendingUp, LayoutList } from 'lucide-react'
 
 type Presencia={id:string;nombre:string;avatar_color:string;entrada:string;latitud?:number;longitud?:number;direccion?:string}
 type Ausente={id:string;nombre:string;avatar_color:string;ultimo_fichaje?:string}
@@ -99,7 +99,7 @@ export default function WhoisPage(){
         </div>
         <div className="flex items-center gap-2">
           <button onClick={()=>setTab(t=>t==='lista'?'mapa':'lista')} className="btn-secondary flex items-center gap-2">
-            {tab==='lista'?<><MapIcon className="w-4 h-4"/>Ver mapa</>:<><Users className="w-4 h-4"/>Ver lista</>}
+            {tab==='lista'?<><LayoutList className="w-4 h-4"/>Ver mapa</>:<><Users className="w-4 h-4"/>Ver lista</>}
           </button>
           <button onClick={cargar} className="btn-secondary flex items-center gap-2"><RefreshCw className="w-4 h-4"/>Actualizar</button>
         </div>

@@ -33,7 +33,7 @@ export default function RegistroPage(){
       const data=await resp.json()
       if(!resp.ok||data.error){setError(data.error||'Error');setLoading(false);return}
       setDone(true);setTimeout(()=>router.push('/'),3000)
-    }catch(ex){setError(ex.message||'Error de conexión')}
+    }catch(ex:any){setError(ex.message||'Error de conexión')}
     setLoading(false)
   }
 

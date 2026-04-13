@@ -9,7 +9,7 @@ import {
   Briefcase, ClipboardList, Star, Gift, LogOut,
   ChevronDown, Sun, Moon, Search, Menu, X, Wifi,
   AlertCircle, Receipt, Shield, Building2,
-  Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Briefcase, Target,
+  Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Target,
   ChevronRight, Settings, CalendarRange, AlertTriangle
 } from 'lucide-react'
 

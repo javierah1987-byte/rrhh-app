@@ -20,7 +20,7 @@ export default function AdminFirmasPage(){
 
   const cargar=useCallback(async()=>{
     const[{data:fs},{data:ds},{data:es}]=await Promise.all([
-      supabase.from('solicitudes_firma').select('*,documentos(id,nombre),empleados(id,nombre,avatar_color)').order('created_at',{ascending:false}),
+      supabase.from('solicitudes_firma').select('*,documentos(id,nombre),empleado:empleado_id(id,nombre,avatar_color)').order('created_at',{ascending:false}),
       supabase.from('documentos').select('id,nombre').order('nombre'),
       supabase.from('empleados').select('id,nombre,avatar_color').in('rol',['empleado','manager']).eq('estado','activo').order('nombre'),
     ])

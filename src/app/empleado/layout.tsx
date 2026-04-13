@@ -24,6 +24,7 @@ const GROUPS: NavGroup[] = [
   ]},
   { id:'administracion', label:'Administración', icon:Wallet, color:'#0891b2', items:[
     { icon:CreditCard, label:'Nóminas',     href:'/empleado/nominas' },
+    { icon:FolderOpen, label:'Mis documentos', href:'/empleado/documentos' },
     { icon:Receipt,    label:'Gastos',         href:'/empleado/gastos' },
     { icon:FolderOpen, label:'Documentos',     href:'/empleado/solicitar-documentos' },
   ]},

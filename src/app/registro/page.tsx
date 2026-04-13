@@ -11,7 +11,7 @@ export default function RegistroPage(){
   const [showPass,setShowPass]=useState(false)
   const [done,setDone]=useState(false)
   const [form,setForm]=useState({nombre_empresa:'',cif:'',nombre_admin:'',email:'',password:'',confirma:''})
-  const upd=(k)=>(e)=>{setForm(p=>({...p,[k]:e.target.value}));setError('')}
+  const upd=(k:keyof typeof form)=>(e:React.ChangeEvent<HTMLInputElement>)=>{setForm(p=>({...p,[k]:e.target.value}));setError('')}
 
   function check1(){if(!form.nombre_empresa.trim())return'El nombre de empresa es obligatorio';return''}
   function check2(){

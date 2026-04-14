@@ -20,7 +20,7 @@ const GROUPS: NavGroup[] = [
   { id:'tiempo', label:'Tiempo', icon:Timer, color:'#6366f1', items:[
     { icon:Clock,         label:'Control horas', href:'/admin/control-horas' },
     { icon:Wifi,          label:"Who's In",       href:'/admin/whois' },
-    { icon:Monitor,      label:'Kiosko',          href:'/kiosko', external:true },
+    { icon:Monitor,      label:'Kiosko',          href:'/kiosko' },
     { icon:ClipboardList, label:'Horarios',       href:'/admin/horarios' },
     { icon:AlertCircle,   label:'Correcciones',   href:'/admin/correcciones' },
     { icon:Clock,         label:'Bolsa de horas',  href:'/admin/bolsa-horas' },

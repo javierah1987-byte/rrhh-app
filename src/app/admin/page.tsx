@@ -84,15 +84,16 @@ export default function AdminDashboardPage(){
             {tendencia>=0?<TrendingUp className="w-4 h-4"/>:<TrendingDown className="w-4 h-4"/>}{tendencia>=0?'+':''}{tendencia} hoy
           </div>
         </div>
-        <div className="flex items-end gap-1 h-36 px-1">
+        <div className="flex items-end gap-0.5 h-32 px-1 border-b border-slate-100 dark:border-slate-700 mb-1">
           {ultimosDias.map((d,i)=>{
-            const pct=maxPresentes>0?(d.presentes/maxPresentes)*100:0
+            const barPx=maxPresentes>0?Math.max(Math.round((d.presentes/maxPresentes)*120),d.presentes>0?8:3):3
             const isHoy=d.fecha===new Date().toISOString().split('T')[0]
             const dia=new Date(d.fecha+'T12:00:00').toLocaleDateString('es-ES',{weekday:'narrow'})
-            return(<div key={i} className="flex-1 flex flex-col items-center gap-1 group">
-              <span className="text-[9px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">{d.presentes}</span>
-              <div className="w-full rounded-t-md transition-all duration-300" style={{height:Math.max(pct,4)+'%',background:isHoy?'#6366f1':d.presentes===0?'#e2e8f0':'rgba(99,102,241,'+(0.3+(pct/100)*0.7)+')'}}/>
-              <span className={"text-[9px] "+(isHoy?'text-indigo-600 font-bold':'text-slate-400')}>{dia}</span>
+            const clr=d.presentes===0?"rgb(226,232,240)":`rgba(99,102,241,${(0.35+d.presentes/maxPresentes*0.65).toFixed(2)})`
+            return(<div key={i} title={d.presentes+" presentes"} className="flex-1 flex flex-col justify-end items-center group cursor-default">
+              {d.presentes>0&&<span className="text-[8px] text-slate-400 opacity-0 group-hover:opacity-100 mb-0.5 transition-opacity leading-none">{d.presentes}</span>}
+              <div className="w-full rounded-t transition-all" style={{height:barPx+"px",background:clr}}/>
+              <span className={"text-[9px] mt-1 "+(isHoy?"text-indigo-600 font-bold":"text-slate-400")}>{dia}</span>
             </div>)
           })}
         </div>

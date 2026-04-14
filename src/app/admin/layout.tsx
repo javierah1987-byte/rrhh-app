@@ -46,14 +46,15 @@ const GROUPS: NavGroup[] = [
     { icon:Briefcase,  label:'Petición docs', href:'/admin/solicitudes-documentos' },
       { icon:PenLine,    label:'Firmas',         href:'/admin/firmas' },
     { icon:BarChart2,  label:'Informes',        href:'/admin/informes' },
+    { icon:Mail,         label:'Cola emails',   href:'/admin/email-queue' },
       { icon:Target,      label:'OKR',             href:'/admin/okr' },
       { icon:Building2,  label:'Mi empresa',      href:'/admin/empresa' },
   ]},
   { id:'comunicacion', label:'Comunicación', icon:Megaphone, color:'#ec4899', items:[
     { icon:Bell,          label:'Avisos',       href:'/admin/avisos' },
+    { icon:Heart,        label:'Clima laboral', href:'/admin/encuestas' },
     { icon:MessageSquare, label:'Mensajes',     href:'/admin/mensajes' },
     { icon:Gift,          label:'Recordatorios',href:'/admin/recordatorios' },
-    { icon:Mail,          label:'Cola emails',   href:'/admin/email-queue' },
   ]},
   { id:'cumplimiento', label:'Cumplimiento', icon:Lock, color:'#8b5cf6', items:[
     { icon:Shield,         label:'RGPD',           href:'/admin/rgpd' },

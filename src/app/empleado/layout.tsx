@@ -37,8 +37,8 @@ const GROUPS: NavGroup[] = [
     { icon:Heart,    label:'Clima laboral', href:'/empleado/encuestas' },
     { icon:Shield,   label:'Privacidad',    href:'/empleado/privacidad' },
     { icon:Users,    label:'Mi Equipo',     href:'/empleado/equipo', onlyManager:true },
-    { icon:PenLine,  label:'Firmas',        href:'/empleado/firmas' },
-    { icon:Lock,     label:'Denuncias',     href:'/empleado/denuncias' },
+        { icon:Lock,     label:'Denuncias',     href:'/empleado/denuncias' },
+    { icon:FileText, label:'Mi jornada',    href:'/empleado/jornada' },
     { icon:PenLine,  label:'Mis firmas',    href:'/empleado/firmas' },
   ]},
 ]

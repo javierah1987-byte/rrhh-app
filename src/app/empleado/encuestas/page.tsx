@@ -91,7 +91,7 @@ export default function EncuestasPage(){
               <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0"/>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{e.pregunta}</p>
-                {e.mi_respuesta&&<p className="text-xs text-slate-400">Tu respuesta: {e.tipo==='puntuacion'?EMOJIS[parseInt(e.mi_respuesta)-1]+' '+LABELS[parseInt(e.mi_respuesta)-1]:e.mi_respuesta}</p>}
+                {e.mi_respuesta&&<p className="text-xs text-slate-400">Tu respuesta: {e.tipo==='puntuacion'?`${e.mi_respuesta}/10 ⭐`:e.mi_respuesta}</p>}
               </div>
             </div>
           ))}</div>

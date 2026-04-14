@@ -10,7 +10,7 @@ import {
   ChevronDown, Sun, Moon, Search, Menu, X, Wifi, Monitor,
   AlertCircle, Receipt, Shield, Building2,
   Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Target,
-  ChevronRight, Settings, CalendarRange, AlertTriangle
+  ChevronRight, Settings, CalendarRange, AlertTriangle, Mail
 } from 'lucide-react'
 
 type NavItem = { icon: any; label: string; href: string; badge?: boolean }

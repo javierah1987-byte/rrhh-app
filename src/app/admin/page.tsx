@@ -84,7 +84,7 @@ export default function AdminDashboardPage(){
             {tendencia>=0?<TrendingUp className="w-4 h-4"/>:<TrendingDown className="w-4 h-4"/>}{tendencia>=0?'+':''}{tendencia} hoy
           </div>
         </div>
-        <div className="flex items-end gap-1.5 h-28">
+        <div className="flex items-end gap-1 h-36 px-1">
           {ultimosDias.map((d,i)=>{
             const pct=maxPresentes>0?(d.presentes/maxPresentes)*100:0
             const isHoy=d.fecha===new Date().toISOString().split('T')[0]

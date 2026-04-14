@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { Monitor, useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CommandPalette } from '@/components/CommandPalette'

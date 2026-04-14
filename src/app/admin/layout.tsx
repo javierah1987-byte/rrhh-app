@@ -1,5 +1,5 @@
 'use client'
-import { Monitor, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CommandPalette } from '@/components/CommandPalette'
@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Clock, CalendarDays, FileText,
   DollarSign, BarChart2, Bell, MessageSquare, Calendar,
   Briefcase, ClipboardList, Star, Gift, LogOut,
-  ChevronDown, Sun, Moon, Search, Menu, X, Wifi,
+  ChevronDown, Sun, Moon, Search, Menu, X, Wifi, Monitor,
   AlertCircle, Receipt, Shield, Building2,
   Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Target,
   ChevronRight, Settings, CalendarRange, AlertTriangle
@@ -20,6 +20,7 @@ const GROUPS: NavGroup[] = [
   { id:'tiempo', label:'Tiempo', icon:Timer, color:'#6366f1', items:[
     { icon:Clock,         label:'Control horas', href:'/admin/control-horas' },
     { icon:Wifi,          label:"Who's In",       href:'/admin/whois' },
+    { icon:Monitor,      label:'Kiosko',          href:'/kiosko', external:true },
     { icon:ClipboardList, label:'Horarios',       href:'/admin/horarios' },
     { icon:AlertCircle,   label:'Correcciones',   href:'/admin/correcciones' },
     { icon:Clock,         label:'Bolsa de horas',  href:'/admin/bolsa-horas' },

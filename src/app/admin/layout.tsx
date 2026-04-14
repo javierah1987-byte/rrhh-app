@@ -53,6 +53,7 @@ const GROUPS: NavGroup[] = [
     { icon:Bell,          label:'Avisos',       href:'/admin/avisos' },
     { icon:MessageSquare, label:'Mensajes',     href:'/admin/mensajes' },
     { icon:Gift,          label:'Recordatorios',href:'/admin/recordatorios' },
+    { icon:Mail,          label:'Cola emails',   href:'/admin/email-queue' },
   ]},
   { id:'cumplimiento', label:'Cumplimiento', icon:Lock, color:'#8b5cf6', items:[
     { icon:Shield,         label:'RGPD',           href:'/admin/rgpd' },

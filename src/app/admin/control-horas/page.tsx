@@ -9,7 +9,7 @@ type Emp = { id:string; nombre:string; avatar_color:string; jornada_horas:number
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
 
 function minutosAHHMM(m:number) {
-  const h=Math.floor(Math.abs(m)/60), min=Math.abs(m)%60
+  const h=Math.floor(Math.abs(m)/60), min=Math.floor(Math.abs(m)%60)
   return `${m<0?'-':''}${h}h ${min>0?min+'min':''}`
 }
 
@@ -62,8 +62,8 @@ export default function ControlHorasPage() {
         const diasTrabajados = Object.keys(porDia).length
         const minsTotales = Object.values(porDia).reduce((s,fs)=>s+calcularHorasDia(fs),0)
         const horasEsperadas = (e.jornada_horas||8)*diasLaborables*60
-        const horasExtra = minsTotales - horasEsperadas
-        return { emp:e, diasTrabajados, minsTotales, horasEsperadas, horasExtra, diasLaborables }
+        const horasExtra = Math.round(minsTotales) - horasEsperadas
+        return { emp:e, diasTrabajados, minsTotales:Math.round(minsTotales), horasEsperadas, horasExtra, diasLaborables }
       })
   }, [empleados, fichajes, mes, anio, empFiltro])
 

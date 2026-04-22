@@ -7,6 +7,7 @@ import { UserPlus, ArrowLeft, CheckCircle } from 'lucide-react'
 
 const DEPTOS = ['Dirección','Ventas','RRHH','Tecnología','Operaciones','Marketing','Finanzas','Producción','Logística','Administración']
 const COLORES = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f97316','#eab308','#22c55e','#14b8a6','#3b82f6','#06b6d4']
+const SURL = 'https://mmujjxoywrfolbvmotya.supabase.co'
 
 export default function NuevoEmpleadoPage() {
   const [form, setForm] = useState({
@@ -23,54 +24,49 @@ export default function NuevoEmpleadoPage() {
 
   const guardar = async () => {
     if (!form.nombre || !form.email || !form.password) { setError('Nombre, email y contraseña son obligatorios'); return }
+    if (form.password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres'); return }
     setLoading(true); setError('')
 
-    // 1. Crear usuario en Supabase Auth usando admin API (service role) — necesita service_role
-    // Como no tenemos service_role en cliente, usamos Edge Function o guardamos pendiente
-    // Por ahora creamos solo el registro de empleado (el usuario debe hacer login la 1ª vez)
-    
-    // Obtener empresa_id del admin actual
-    const { data:{ user } } = await supabase.auth.getUser()
-    const { data: adminEmp } = await supabase.from('empleados').select('empresa_id').eq('user_id', user.id).single()
-    
-    // Buscar si ya existe auth user con ese email
-    // Insertar empleado (el usuario deberá registrarse con ese email)
-    const { error: empErr } = await supabase.from('empleados').insert({
-      nombre: form.nombre,
-      email: form.email,
-      puesto: form.puesto,
-      departamento: form.departamento,
-      rol: form.rol,
-      tipo_contrato: form.tipo_contrato,
-      jornada_horas: form.jornada_horas ? +form.jornada_horas : 40,
-      salario_base: form.salario_base ? +form.salario_base : null,
-      telefono: form.telefono || null,
-      ciudad: form.ciudad || null,
-      avatar_color: form.avatar_color,
-      empresa_id: adminEmp?.empresa_id,
-      estado: 'activo',
-      fecha_alta: new Date().toISOString().split('T')[0],
+    const { data:{ session } } = await supabase.auth.getSession()
+    const { data: adminEmp }   = await supabase.from('empleados').select('empresa_id').eq('user_id', session?.user?.id).single()
+
+    const res = await fetch(`${SURL}/functions/v1/create-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`
+      },
+      body: JSON.stringify({
+        ...form,
+        jornada_horas: +form.jornada_horas || 40,
+        salario_base: form.salario_base ? +form.salario_base : null,
+        empresa_id: adminEmp?.empresa_id,
+      })
     })
 
-    if (empErr) { setError('Error al crear empleado: ' + empErr.message); setLoading(false); return }
+    const data = await res.json()
+    if (!res.ok) { setError(data.error || 'Error al crear empleado'); setLoading(false); return }
     setOk(true); setLoading(false)
   }
 
   if (ok) return (
     <div className="p-6 max-w-lg mx-auto text-center py-16">
       <CheckCircle className="w-16 h-16 text-emerald-500 mx-auto mb-4"/>
-      <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">Empleado creado</h2>
-      <p className="text-slate-400 text-sm mb-6">
-        {form.nombre} ha sido añadido. Envíale el email <strong>{form.email}</strong> para que active su cuenta.
-      </p>
+      <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200 mb-2">¡Empleado creado!</h2>
+      <p className="text-slate-500 text-sm mb-1">{form.nombre} puede entrar con:</p>
+      <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 my-4 text-left">
+        <p className="text-sm text-slate-600 dark:text-slate-300"><span className="font-medium">Email:</span> {form.email}</p>
+        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1"><span className="font-medium">Contraseña:</span> {form.password}</p>
+        <p className="text-sm text-slate-400 mt-2 text-xs">Url: pruebasgrupoaxen.com/login</p>
+      </div>
       <div className="flex gap-3 justify-center">
         <button onClick={()=>{setOk(false);setForm(f=>({...f,nombre:'',email:'',password:'',puesto:'',telefono:'',ciudad:'',salario_base:''}))}}
-          className="px-5 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-500">
+          className="px-5 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-500 hover:bg-slate-50">
           Añadir otro
         </button>
         <button onClick={()=>router.push('/admin/empleados')}
           className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold">
-          Ver empleados
+          Ver lista
         </button>
       </div>
     </div>
@@ -88,25 +84,26 @@ export default function NuevoEmpleadoPage() {
         <p className="text-slate-400 text-sm mt-0.5">Añade un miembro al equipo</p>
       </div>
 
-      {error && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-600 text-sm">{error}</div>}
+      {error && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-red-600 dark:text-red-400 text-sm">{error}</div>}
 
       <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 space-y-4">
-        <h3 className="font-semibold text-slate-700 dark:text-slate-200 text-sm">Datos personales</h3>
+        <h3 className="font-semibold text-slate-700 dark:text-slate-200 text-sm">Datos de acceso</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[
-            {k:'nombre',label:'Nombre completo *',ph:'Juan García López'},
-            {k:'email', label:'Email *',ph:'juan@empresa.com'},
-            {k:'password',label:'Contraseña inicial *',ph:'Mínimo 6 caracteres'},
-            {k:'telefono',label:'Teléfono',ph:'+34 600 000 000'},
-            {k:'ciudad',label:'Ciudad',ph:'Madrid'},
-          ].map(f=>(
-            <div key={f.k} className={f.k==='nombre'?'sm:col-span-2':''}>
-              <label className="block text-xs font-medium text-slate-500 mb-1">{f.label}</label>
-              <input type={f.k==='password'?'password':'text'} value={form[f.k]} onChange={e=>set(f.k,e.target.value)}
-                placeholder={f.ph}
-                className="w-full bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-2.5 text-sm border border-slate-200 dark:border-slate-600 outline-none focus:border-indigo-400 text-slate-700 dark:text-slate-200"/>
-            </div>
-          ))}
+          <div className="sm:col-span-2">
+            <label className="block text-xs font-medium text-slate-500 mb-1">Nombre completo *</label>
+            <input value={form.nombre} onChange={e=>set('nombre',e.target.value)} placeholder="Juan García López"
+              className="w-full bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-2.5 text-sm border border-slate-200 dark:border-slate-600 outline-none focus:border-indigo-400 text-slate-700 dark:text-slate-200"/>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Email *</label>
+            <input type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="juan@empresa.com"
+              className="w-full bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-2.5 text-sm border border-slate-200 dark:border-slate-600 outline-none focus:border-indigo-400 text-slate-700 dark:text-slate-200"/>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Contraseña inicial *</label>
+            <input type="text" value={form.password} onChange={e=>set('password',e.target.value)} placeholder="Min. 6 caracteres"
+              className="w-full bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-2.5 text-sm border border-slate-200 dark:border-slate-600 outline-none focus:border-indigo-400 text-slate-700 dark:text-slate-200"/>
+          </div>
         </div>
       </div>
 
@@ -145,17 +142,16 @@ export default function NuevoEmpleadoPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Horas semana</label>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Horas / semana</label>
             <input type="number" value={form.jornada_horas} onChange={e=>set('jornada_horas',e.target.value)}
               className="w-full bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-2.5 text-sm border border-slate-200 dark:border-slate-600 outline-none focus:border-indigo-400 text-slate-700 dark:text-slate-200"/>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Salario base anual (€)</label>
-            <input type="number" value={form.salario_base} onChange={e=>set('salario_base',e.target.value)} placeholder="24000"
+            <label className="block text-xs font-medium text-slate-500 mb-1">Teléfono</label>
+            <input value={form.telefono} onChange={e=>set('telefono',e.target.value)} placeholder="+34 600 000 000"
               className="w-full bg-slate-50 dark:bg-slate-700 rounded-xl px-3 py-2.5 text-sm border border-slate-200 dark:border-slate-600 outline-none focus:border-indigo-400 text-slate-700 dark:text-slate-200"/>
           </div>
         </div>
-        {/* Color avatar */}
         <div>
           <label className="block text-xs font-medium text-slate-500 mb-2">Color avatar</label>
           <div className="flex gap-2 flex-wrap">
@@ -171,7 +167,7 @@ export default function NuevoEmpleadoPage() {
       <button onClick={guardar} disabled={loading}
         className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-2xl flex items-center justify-center gap-2 transition-colors shadow-lg">
         <UserPlus className="w-5 h-5"/>
-        {loading ? 'Guardando...' : 'Crear empleado'}
+        {loading ? 'Creando cuenta...' : 'Crear empleado'}
       </button>
     </div>
   )

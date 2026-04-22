@@ -1,144 +1,109 @@
+// @ts-nocheck
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { AlertCircle } from 'lucide-react'
-
-const DEMO = [
-  { email: 'admin@acme.com', pass: 'admin123', rol: 'Admin' },
-  { email: 'ana@acme.com', pass: '1234', rol: 'Empleada' },
-  { email: 'luis@acme.com', pass: '1234', rol: 'Empleado' },
-]
-
-function NexoLogo({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 80 80" fill="none">
-      <circle cx="28" cy="28" r="10" fill="white"/>
-      <circle cx="52" cy="28" r="10" fill="white" fillOpacity="0.7"/>
-      <path d="M18 52 C18 44 22 40 28 40 C34 40 38 44 38 52" stroke="white" strokeWidth="5" strokeLinecap="round" fill="none"/>
-      <path d="M42 52 C42 44 46 40 52 40 C58 40 62 44 62 52" stroke="white" strokeWidth="5" strokeLinecap="round" fill="none" strokeOpacity="0.7"/>
-      <line x1="40" y1="18" x2="40" y2="62" stroke="white" strokeWidth="2" strokeOpacity="0.35" strokeDasharray="4 4"/>
-    </svg>
-  )
-}
+import { useRouter } from 'next/navigation'
+import { Eye, EyeOff, LogIn } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [email, setEmail] = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [show, setShow]         = useState(false)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const router = useRouter()
 
-  async function handleLogin(e: React.FormEvent) {
+  const handleLogin = async (e) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
-    if (authError || !data.user) {
-      setError('Email o contraseña incorrectos')
-      setLoading(false)
-      return
+    setLoading(true); setError('')
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
+    if (err) { setError('Email o contraseña incorrectos'); setLoading(false); return }
+    const user = data?.user
+    if (!user) { setError('Error de autenticación'); setLoading(false); return }
+    const { data: emp } = await supabase.from('empleados').select('rol').eq('user_id', user.id).single()
+    const rol = emp?.rol || 'empleado'
+    if (rol === 'owner' || rol === 'admin' || rol === 'manager') {
+      router.push('/admin')
+    } else {
+      router.push('/empleado')
     }
+  }
+
+  const demoLogin = async (em, pw) => {
+    setEmail(em); setPassword(pw)
+    setLoading(true); setError('')
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email: em, password: pw })
+    if (err) { setError('Error en demo login'); setLoading(false); return }
     const { data: emp } = await supabase.from('empleados').select('rol').eq('user_id', data.user.id).single()
-    router.push(emp?.rol === 'admin' ? '/admin' : '/empleado')
+    const rol = emp?.rol || 'empleado'
+    router.push(rol === 'owner' || rol === 'admin' || rol === 'manager' ? '/admin' : '/empleado')
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'linear-gradient(135deg,#EEF2FF 0%,#F0FDF4 60%,#F8FAFC 100%)' }}>
-      {/* Panel izquierdo — marca */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center p-12 relative overflow-hidden"
-        style={{ background: 'linear-gradient(145deg,#4F46E5 0%,#4338CA 55%,#059669 100%)' }}>
-        <div className="absolute inset-0 opacity-10">
-          {[1,2,3,4,5].map(i => (
-            <div key={i} className="absolute rounded-full border border-white"
-              style={{ width: i*140+'px', height: i*140+'px', top:'50%', left:'50%', transform:'translate(-50%,-50%)' }}/>
-          ))}
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-900/50">
+            <span className="text-white text-2xl font-black">N</span>
+          </div>
+          <h1 className="text-3xl font-black text-white">Nexo HR</h1>
+          <p className="text-indigo-300 mt-1">Tu plataforma de Recursos Humanos</p>
         </div>
-        <div className="relative z-10 text-white text-center">
-          <div className="flex justify-center mb-6">
-            <div className="w-24 h-24 rounded-3xl flex items-center justify-center" style={{ background:'rgba(255,255,255,0.18)' }}>
-              <NexoLogo size={56}/>
+
+        {/* Card */}
+        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-8 shadow-2xl">
+          <h2 className="text-white font-bold text-lg mb-6">Iniciar sesión</h2>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-indigo-200 text-sm mb-1.5">Email</label>
+              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required
+                placeholder="tu@empresa.com" autoComplete="email"
+                className="w-full bg-white/10 text-white placeholder-white/30 rounded-xl px-4 py-3 border border-white/20 focus:border-indigo-400 outline-none text-sm"/>
             </div>
-          </div>
-          <h1 className="text-5xl font-bold tracking-tight mb-2">Nexo HR</h1>
-          <p className="text-lg opacity-75 mb-10">Gestión de Recursos Humanos</p>
-          <div className="space-y-3 max-w-xs mx-auto text-left">
-            {[
-              { icon:'⏱', text:'Control de fichajes y horarios' },
-              { icon:'📋', text:'Gestión de solicitudes y vacaciones' },
-              { icon:'📊', text:'Informes y nóminas' },
-              { icon:'🔔', text:'Avisos y comunicaciones' },
-            ].map((f,i) => (
-              <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-3"
-                style={{ background:'rgba(255,255,255,0.12)' }}>
-                <span className="text-xl">{f.icon}</span>
-                <span className="text-sm font-medium opacity-90">{f.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Panel derecho — formulario */}
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          {/* Logo móvil */}
-          <div className="lg:hidden text-center mb-8">
-            <div className="inline-flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                style={{ background:'linear-gradient(135deg,#4F46E5,#10B981)' }}>
-                <NexoLogo size={28}/>
-              </div>
-              <div className="text-left">
-                <p className="text-2xl font-bold text-slate-900">Nexo HR</p>
-                <p className="text-xs text-slate-500">Gestión de Recursos Humanos</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-8">
-            <h2 className="text-2xl font-bold text-slate-900 mb-1">Bienvenido</h2>
-            <p className="text-slate-500 text-sm mb-6">Accede a tu cuenta para continuar</p>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="label">Correo electrónico</label>
-                <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
-                  className="input" placeholder="tu@empresa.com" required/>
-              </div>
-              <div>
-                <label className="label">Contraseña</label>
-                <input type="password" value={password} onChange={e=>setPassword(e.target.value)}
-                  className="input" required/>
-              </div>
-              {error && (
-                <div className="flex items-center gap-2 text-red-600 text-sm bg-red-50 border border-red-100 rounded-xl p-3">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0"/>{error}
-                </div>
-              )}
-              <button type="submit" disabled={loading} className="btn-primary w-full py-3 text-base">
-                {loading ? 'Entrando…' : 'Entrar'}
-              </button>
-            </form>
-          </div>
-
-          <div className="mt-4 card p-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Usuarios de prueba</p>
-            <div className="space-y-1">
-              {DEMO.map(u => (
-                <button key={u.email} type="button"
-                  onClick={() => { setEmail(u.email); setPassword(u.pass) }}
-                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-indigo-50 transition-colors flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-semibold text-slate-800">{u.email}</span>
-                    <span className="text-xs text-slate-400 ml-2">/ {u.pass}</span>
-                  </div>
-                  <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{u.rol}</span>
+            <div>
+              <label className="block text-indigo-200 text-sm mb-1.5">Contraseña</label>
+              <div className="relative">
+                <input type={show?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} required
+                  placeholder="••••••••" autoComplete="current-password"
+                  className="w-full bg-white/10 text-white placeholder-white/30 rounded-xl px-4 py-3 pr-11 border border-white/20 focus:border-indigo-400 outline-none text-sm"/>
+                <button type="button" onClick={()=>setShow(!show)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70">
+                  {show?<EyeOff className="w-4 h-4"/>:<Eye className="w-4 h-4"/>}
                 </button>
-              ))}
+              </div>
+            </div>
+            {error && (
+              <div className="bg-red-500/20 border border-red-500/30 rounded-xl px-4 py-2.5 text-red-300 text-sm">{error}</div>
+            )}
+            <button type="submit" disabled={loading}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-900/50">
+              <LogIn className="w-4 h-4"/>
+              {loading?'Entrando...':'Entrar'}
+            </button>
+          </form>
+
+          {/* Demo acceso rápido */}
+          <div className="mt-6 pt-5 border-t border-white/10">
+            <p className="text-indigo-300 text-xs text-center mb-3">Acceso rápido demo</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={()=>demoLogin('admin@acme.com','admin123')}
+                className="bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl px-3 py-2.5 text-left transition-colors">
+                <p className="text-white text-xs font-semibold">👤 Admin</p>
+                <p className="text-indigo-300 text-[10px]">Panel administrador</p>
+              </button>
+              <button onClick={()=>demoLogin('luis@acme.com','1234')}
+                className="bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl px-3 py-2.5 text-left transition-colors">
+                <p className="text-white text-xs font-semibold">👷 Empleado</p>
+                <p className="text-indigo-300 text-[10px]">Portal empleado</p>
+              </button>
             </div>
           </div>
-          <p className="text-center text-xs text-slate-400 mt-5">Nexo HR © {new Date().getFullYear()}</p>
         </div>
+
+        <p className="text-center text-white/20 text-xs mt-6">
+          Nexo HR by Tryvor · v2026
+        </p>
       </div>
     </div>
   )

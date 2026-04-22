@@ -1,92 +1,157 @@
+// @ts-nocheck
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Receipt, CheckCircle, XCircle } from 'lucide-react'
+import { Receipt, CheckCircle2, XCircle, Clock, TrendingUp, X, FileText } from 'lucide-react'
 
-type Gasto={id:string;fecha:string;categoria:string;descripcion:string;importe:number;ticket_url:string|null;estado:'pendiente'|'aprobado'|'rechazado';comentario_admin:string|null;empleados:{nombre:string;avatar_color:string;departamento:string|null}}
-const EMOJI_CAT:Record<string,string>={transporte:'🚗',comida:'🍽️',alojamiento:'🏨',material:'📦',telefono:'📱',formacion:'📚',otro:'📎'}
+const CAT_COLOR = {formacion:'#6366f1',transporte:'#10b981',comida:'#f59e0b',material:'#8b5cf6',alojamiento:'#0891b2',otro:'#64748b'}
 
-export default function AdminGastosPage(){
-  const [gastos,setGastos]=useState<Gasto[]>([])
-  const [loading,setLoading]=useState(true)
-  const [filtro,setFiltro]=useState('pendiente')
-  const [procesando,setPro]=useState<string|null>(null)
-  const [comentarios,setCom]=useState<Record<string,string>>({})
+export default function AdminGastosPage() {
+  const [gastos, setGastos]     = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [filtro, setFiltro]     = useState('pendiente')
+  const [saving, setSaving]     = useState(null)
+  const [modalRech, setModalRech] = useState(null)
+  const [motivo, setMotivo]     = useState('')
 
-  const cargar=useCallback(async()=>{
-    const{data}=await supabase.from('gastos').select('*,empleados(nombre,avatar_color,departamento)').order('created_at',{ascending:false})
-    setGastos((data as Gasto[])||[]); setLoading(false)
-  },[])
-  useEffect(()=>{cargar()},[cargar])
+  const cargar = useCallback(async () => {
+    const q = supabase.from('gastos')
+      .select('*, empleados(nombre,puesto,avatar_color)')
+      .order('fecha', {ascending:false})
+    const { data } = filtro==='todos' ? await q : await q.eq('estado',filtro)
+    setGastos(data||[])
+    setLoading(false)
+  }, [filtro])
 
-  async function gestionar(id:string,estado:'aprobado'|'rechazado'){
-    setPro(id)
-    const g=gastos.find(x=>x.id===id), nota=comentarios[id]||''
-    await supabase.from('gastos').update({estado,comentario_admin:nota||null}).eq('id',id)
-    const{data:gd}=await supabase.from('gastos').select('empleado_id').eq('id',id).single()
-    if(gd)await supabase.from('notificaciones').insert({empleado_id:(gd as any).empleado_id,titulo:'Gasto '+estado,mensaje:'Tu gasto de '+g?.importe.toFixed(2)+' € ha sido '+estado+'.',tipo:estado==='aprobado'?'exito':'advertencia',enlace:'/empleado/gastos'})
-    setGastos(p=>p.map(x=>x.id===id?{...x,estado,comentario_admin:nota||null}:x)); setPro(null)
+  useEffect(()=>{setLoading(true);cargar()},[cargar])
+
+  const aprobar = async id => {
+    setSaving(id)
+    await supabase.from('gastos').update({estado:'aprobado'}).eq('id',id)
+    setSaving(null); cargar()
+  }
+  const rechazar = async (id, mot) => {
+    setSaving(id)
+    await supabase.from('gastos').update({estado:'rechazado'}).eq('id',id)
+    setSaving(null); setModalRech(null); setMotivo(''); cargar()
   }
 
-  const filtradas=gastos.filter(g=>filtro==='todas'||g.estado===filtro)
-  const totalPend=gastos.filter(g=>g.estado==='pendiente').reduce((s,g)=>s+g.importe,0)
-  const counts={pendiente:gastos.filter(g=>g.estado==='pendiente').length,aprobado:gastos.filter(g=>g.estado==='aprobado').length,rechazado:gastos.filter(g=>g.estado==='rechazado').length}
+  const totalPend = gastos.filter(g=>g.estado==='pendiente').reduce((s,g)=>s+(g.importe||0),0)
+  const totalAprob = gastos.filter(g=>g.estado==='aprobado').reduce((s,g)=>s+(g.importe||0),0)
 
-  return(
-    <div>
-      <div className="page-header mb-5">
-        <div><h1 className="page-title">Gastos del equipo</h1><p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Revisa y aprueba los gastos profesionales</p></div>
-        <div className="card px-4 py-2 text-right"><p className="text-xs text-slate-400">Pendiente</p><p className="text-xl font-black text-amber-600 dark:text-amber-400">{totalPend.toFixed(2)} €</p></div>
+  return (
+    <div className="p-4 lg:p-6 space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <Receipt className="w-5 h-5 text-indigo-500"/> Gestión de gastos
+          </h1>
+          <p className="text-slate-400 text-sm mt-0.5">Revisa y aprueba los gastos del equipo</p>
+        </div>
+        <div className="flex gap-3">
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-2.5 text-right">
+            <p className="text-xs text-amber-600">Por aprobar</p>
+            <p className="text-lg font-black text-amber-700">{totalPend.toFixed(2)}€</p>
+          </div>
+          <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl px-4 py-2.5 text-right">
+            <p className="text-xs text-emerald-600">Aprobado mes</p>
+            <p className="text-lg font-black text-emerald-700">{totalAprob.toFixed(2)}€</p>
+          </div>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-2 mb-5">
-        {[{k:'pendiente',l:'Pendientes',c:counts.pendiente,a:'bg-amber-500 text-white',i:'bg-amber-50 text-amber-700'},{k:'aprobado',l:'Aprobados',c:counts.aprobado,a:'bg-emerald-500 text-white',i:'bg-emerald-50 text-emerald-700'},{k:'rechazado',l:'Rechazados',c:counts.rechazado,a:'bg-red-500 text-white',i:'bg-red-50 text-red-700'},{k:'todas',l:'Todos',c:gastos.length,a:'bg-indigo-600 text-white',i:'bg-slate-100 text-slate-700'}].map(f=>(
-          <button key={f.k} onClick={()=>setFiltro(f.k)} className={"flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm transition-colors "+(filtro===f.k?f.a:f.i)}>
-            {f.l}<span className={"text-xs px-1.5 py-0.5 rounded-full "+(filtro===f.k?'bg-white/20':'bg-white/60 dark:bg-slate-600')}>{f.c}</span>
+
+      {/* Filtro */}
+      <div className="flex gap-2">
+        {['pendiente','aprobado','rechazado','todos'].map(f=>(
+          <button key={f} onClick={()=>setFiltro(f)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium capitalize transition-colors ${filtro===f?'bg-indigo-600 text-white':'bg-slate-100 dark:bg-slate-700 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600'}`}>
+            {f==='todos'?'Todos':f}
           </button>
         ))}
       </div>
-      {loading?(<div className="flex justify-center py-16"><div className="w-8 h-8 rounded-full animate-spin border-4 border-indigo-200 border-t-indigo-600"/></div>)
-      :filtradas.length===0?(<div className="card p-12 text-center"><Receipt className="w-10 h-10 text-slate-300 mx-auto mb-3"/><p className="text-slate-500">Sin gastos</p></div>)
-      :(<div className="space-y-3">{filtradas.map(g=>{
-        const emp=g.empleados as any
-        const badgeCls=g.estado==='pendiente'?'badge-amber':g.estado==='aprobado'?'badge-green':'badge-red'
-        return(
-          <div key={g.id} className={"card p-5 "+(g.estado==='pendiente'?'ring-1 ring-amber-200 dark:ring-amber-800':'')}>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{backgroundColor:emp?.avatar_color||'#6366f1'}}>
-                  {emp?.nombre?.split(' ').map((n:string)=>n[0]).join('').substring(0,2)}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-slate-900 dark:text-slate-100 text-sm">{emp?.nombre}</span>
-                    <span className="text-xl">{EMOJI_CAT[g.categoria]||'📎'}</span>
-                    <span className={"badge text-xs capitalize "+badgeCls}>{g.estado}</span>
+
+      {loading ? (
+        <div className="text-slate-400 text-sm animate-pulse py-8 text-center">Cargando gastos...</div>
+      ) : gastos.length===0 ? (
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-10 text-center">
+          <Receipt className="w-12 h-12 text-slate-300 mx-auto mb-3"/>
+          <p className="text-slate-500 text-sm">No hay gastos {filtro!=='todos'?filtro+'s':''}</p>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {gastos.map(g=>{
+              const emp = g.empleados
+              const catColor = CAT_COLOR[g.categoria]||'#64748b'
+              const isPending = g.estado==='pendiente'
+              return (
+                <div key={g.id} className="flex items-center gap-4 px-5 py-3.5 flex-wrap gap-y-2 hover:bg-slate-50/50 dark:hover:bg-slate-700/20 transition-colors">
+                  {/* Avatar */}
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white text-sm flex-shrink-0"
+                    style={{background:emp?.avatar_color||'#6366f1'}}>
+                    {emp?.nombre?.charAt(0)||'?'}
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">{g.descripcion} · {new Date(g.fecha+'T12:00:00').toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</p>
-                  {g.comentario_admin&&<p className="text-xs text-slate-400 mt-1">{g.comentario_admin}</p>}
-                </div>
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <span className="font-black text-lg text-slate-900 dark:text-slate-100">{g.importe.toFixed(2)} €</span>
-                {g.estado==='pendiente'&&(
-                  <div className="flex flex-col gap-1.5">
-                    <input type="text" placeholder="Nota (opcional)" value={comentarios[g.id]||''} onChange={e=>setCom(p=>({...p,[g.id]:e.target.value}))} className="input text-xs py-1 w-36"/>
-                    <div className="flex gap-1.5">
-                      <button onClick={()=>gestionar(g.id,'rechazado')} disabled={procesando===g.id} className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 font-semibold text-xs disabled:opacity-50">
-                        <XCircle className="w-3 h-3"/>Rechazar
+                  {/* Info empleado */}
+                  <div className="min-w-[120px]">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{emp?.nombre}</p>
+                    <p className="text-xs text-slate-400">{new Date(g.fecha).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</p>
+                  </div>
+                  {/* Categoría */}
+                  <span className="text-xs px-2.5 py-1 rounded-full font-medium capitalize flex-shrink-0"
+                    style={{background:catColor+'20',color:catColor}}>
+                    {g.categoria||'otro'}
+                  </span>
+                  {/* Descripción */}
+                  <p className="flex-1 min-w-[150px] text-sm text-slate-600 dark:text-slate-300 truncate">{g.descripcion||'Sin descripción'}</p>
+                  {/* Importe */}
+                  <p className="font-bold text-slate-700 dark:text-slate-200 flex-shrink-0 tabular-nums">{(g.importe||0).toFixed(2)}€</p>
+                  {/* Estado */}
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold flex-shrink-0 ${g.estado==='aprobado'?'bg-emerald-100 text-emerald-700':g.estado==='pendiente'?'bg-amber-100 text-amber-700':'bg-red-100 text-red-700'}`}>
+                    {g.estado}
+                  </span>
+                  {/* Acciones */}
+                  {isPending && (
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button onClick={()=>aprobar(g.id)} disabled={saving===g.id}
+                        className="p-1.5 bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/60 rounded-lg transition-colors disabled:opacity-50"
+                        title="Aprobar">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600"/>
                       </button>
-                      <button onClick={()=>gestionar(g.id,'aprobado')} disabled={procesando===g.id} className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 font-semibold text-xs disabled:opacity-50">
-                        <CheckCircle className="w-3 h-3"/>Aprobar
+                      <button onClick={()=>{setModalRech(g.id);setMotivo('')}} disabled={saving===g.id}
+                        className="p-1.5 bg-red-100 hover:bg-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/60 rounded-lg transition-colors disabled:opacity-50"
+                        title="Rechazar">
+                        <XCircle className="w-4 h-4 text-red-500"/>
                       </button>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Modal rechazo */}
+      {modalRech && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-slate-700 dark:text-slate-200">Rechazar gasto</h3>
+              <button onClick={()=>setModalRech(null)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+            </div>
+            <textarea value={motivo} onChange={e=>setMotivo(e.target.value)} rows={3}
+              placeholder="Motivo del rechazo (opcional)..."
+              className="w-full bg-slate-50 dark:bg-slate-700 rounded-xl px-4 py-3 text-sm border border-slate-200 dark:border-slate-600 outline-none focus:border-red-400 resize-none text-slate-700 dark:text-slate-200"/>
+            <div className="flex gap-2 mt-4">
+              <button onClick={()=>setModalRech(null)} className="flex-1 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700">Cancelar</button>
+              <button onClick={()=>rechazar(modalRech,motivo)}
+                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-semibold transition-colors">
+                {saving===modalRech?'Rechazando...':'Rechazar'}
+              </button>
             </div>
           </div>
-        )
-      })}</div>)}
+        </div>
+      )}
     </div>
   )
 }

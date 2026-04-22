@@ -9,6 +9,37 @@ type KB={departamento:string;empleados:number;con_baja:number;de_vacaciones:numb
 type KG={total_empleados:number;activos_hoy:number;solicitudes_pendientes:number;gastos_mes:number;bajas_activas:number;de_vacaciones:number}
 
 export default function AdminDashboardPage(){
+
+  const [cumpleanos, setCumpleanos] = React.useState([])
+  const [alertas, setAlertas] = React.useState([])
+
+  React.useEffect(() => {
+    // Cumpleaños próximos 30 días
+    supabase.from('empleados').select('id,nombre,fecha_nacimiento,departamento').not('fecha_nacimiento','is',null)
+      .then(({data}) => {
+        if(!data) return
+        const hoy = new Date()
+        const prox = data.map(e => {
+          const d = new Date(e.fecha_nacimiento); d.setFullYear(hoy.getFullYear())
+          if(d < hoy) d.setFullYear(hoy.getFullYear() + 1)
+          return {...e, dias: Math.floor((d - hoy) / 86400000)}
+        }).filter(e => e.dias <= 30).sort((a,b) => a.dias - b.dias)
+        setCumpleanos(prox)
+      })
+    // Alertas
+    Promise.all([
+      supabase.from('empleados').select('nombre,fecha_fin_contrato').not('fecha_fin_contrato','is',null)
+        .gte('fecha_fin_contrato', new Date().toISOString().split('T')[0])
+        .lte('fecha_fin_contrato', new Date(Date.now()+30*86400000).toISOString().split('T')[0]),
+      supabase.from('gastos').select('id',{count:'exact',head:true}).eq('estado','pendiente'),
+    ]).then(([c, g]) => {
+      const a = []
+      c.data?.forEach(x => a.push({icono:'📋', mensaje:'Contrato de '+x.nombre+' vence pronto', detalle: new Date(x.fecha_fin_contrato).toLocaleDateString('es-ES')}))
+      if((g.count||0) > 0) a.push({icono:'💰', mensaje:(g.count||0)+' gasto'+(g.count>1?'s':'')+' pendiente'+(g.count>1?'s':'')+' de aprobar', detalle:'Ir a Administración'})
+      setAlertas(a)
+    })
+  }, [])
+
   const [asistencia,setAsistencia]=useState<KA[]>([])
   const [horas,setHoras]=useState<KH[]>([])
   const [absentismo,setAbsentismo]=useState<KB[]>([])
@@ -150,6 +181,54 @@ export default function AdminDashboardPage(){
               <div key={x.l} className="flex items-center gap-1.5"><div className={"w-2.5 h-2.5 rounded-full "+x.c}/><span className="text-[10px] text-slate-400">{x.l}</span></div>
             ))}
           </div>
+        </div>
+      </div>
+
+
+      {/* Cumpleaños y alertas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="card overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 dark:border-slate-700">
+            <span className="text-lg">🎂</span>
+            <h3 className="font-semibold text-slate-700 dark:text-slate-200 text-sm">Próximos cumpleaños</h3>
+            {cumpleanos.length>0&&<span className="ml-auto bg-pink-100 text-pink-700 text-xs px-2 py-0.5 rounded-full font-medium">{cumpleanos.length}</span>}
+          </div>
+          {cumpleanos.length===0
+            ? <p className="text-slate-400 text-sm p-5">Sin cumpleaños en los próximos 30 días</p>
+            : <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                {cumpleanos.map(e=>(
+                  <div key={e.id} className="flex items-center gap-3 px-5 py-2.5">
+                    <div className="w-8 h-8 rounded-full bg-pink-100 dark:bg-pink-900/30 flex items-center justify-center text-sm font-bold text-pink-600 flex-shrink-0">{e.nombre?.charAt(0)}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{e.nombre}</p>
+                      <p className="text-xs text-slate-400">{e.departamento}</p>
+                    </div>
+                    <span className={"text-xs font-semibold flex-shrink-0 "+(e.dias===0?'text-pink-600':e.dias<=7?'text-amber-600':'text-slate-400')}>
+                      {e.dias===0?'🎉 Hoy':e.dias===1?'Mañana':('en '+e.dias+'d')}
+                    </span>
+                  </div>
+                ))}
+              </div>}
+        </div>
+        <div className="card overflow-hidden">
+          <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 dark:border-slate-700">
+            <span className="text-lg">⚠️</span>
+            <h3 className="font-semibold text-slate-700 dark:text-slate-200 text-sm">Alertas del equipo</h3>
+            {alertas.length>0&&<span className="ml-auto bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded-full font-medium">{alertas.length}</span>}
+          </div>
+          {alertas.length===0
+            ? <div className="p-5 flex items-center gap-2"><span>✅</span><p className="text-sm font-medium text-emerald-600">Todo en orden</p></div>
+            : <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+                {alertas.map((a,i)=>(
+                  <div key={i} className="flex items-start gap-3 px-5 py-2.5">
+                    <span className="text-base flex-shrink-0 mt-0.5">{a.icono}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{a.mensaje}</p>
+                      <p className="text-xs text-slate-400 truncate">{a.detalle}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>}
         </div>
       </div>
 

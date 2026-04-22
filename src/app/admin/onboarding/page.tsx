@@ -26,8 +26,8 @@ export default function OnboardingPage() {
   const cargar = async () => {
     setLoading(true)
     const [a,b,c] = await Promise.all([
-      supabase.from('onboarding_procesos').select('*, empleado:empleados(id,nombre,cargo), tareas:onboarding_tareas(*)').order('created_at',{ascending:false}),
-      supabase.from('empleados').select('id,nombre,cargo').eq('estado','activo').order('nombre'),
+      supabase.from('onboarding_procesos').select('*, empleado:empleados(id,nombre,puesto), tareas:onboarding_tareas(*)').order('created_at',{ascending:false}),
+      supabase.from('empleados').select('id,nombre,puesto').eq('estado','activo').order('nombre'),
       supabase.from('onboarding_plantillas').select('*, tareas:onboarding_tareas_plantilla(*)').eq('activa',true),
     ])
     setProcesos(a.data||[])
@@ -143,7 +143,7 @@ export default function OnboardingPage() {
                         {proc.estado==='completado'?'✅ Completado':'⏳ En progreso'}
                       </span>
                     </div>
-                    <p className="text-slate-500 text-xs mt-0.5">{proc.empleado?.cargo} · Inicio: {new Date(proc.fecha_inicio).toLocaleDateString('es-ES')}</p>
+                    <p className="text-slate-500 text-xs mt-0.5">{proc.empleado?.puesto} · Inicio: {new Date(proc.fecha_inicio).toLocaleDateString('es-ES')}</p>
                     <div className="flex items-center gap-2 mt-2">
                       <div className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
                         <div className="bg-indigo-500 h-1.5 rounded-full" style={{width:`${pct}%`}}/>
@@ -208,7 +208,7 @@ export default function OnboardingPage() {
                 <select value={form.empleado_id} onChange={e=>setForm(f=>({...f,empleado_id:e.target.value}))}
                   className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400 dark:bg-slate-700 dark:text-white">
                   <option value="">Seleccionar empleado...</option>
-                  {empleados.map(e=><option key={e.id} value={e.id}>{e.nombre} — {e.cargo}</option>)}
+                  {empleados.map(e=><option key={e.id} value={e.id}>{e.nombre} — {e.puesto}</option>)}
                 </select>
               </div>
               <div>

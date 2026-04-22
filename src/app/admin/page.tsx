@@ -10,10 +10,10 @@ type KG={total_empleados:number;activos_hoy:number;solicitudes_pendientes:number
 
 export default function AdminDashboardPage(){
 
-  const [cumpleanos, setCumpleanos] = React.useState([])
-  const [alertas, setAlertas] = React.useState([])
+  const [cumpleanos, setCumpleanos] = useState([])
+  const [alertas, setAlertas] = useState([])
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Cumpleaños próximos 30 días
     supabase.from('empleados').select('id,nombre,fecha_nacimiento,departamento').not('fecha_nacimiento','is',null)
       .then(({data}) => {

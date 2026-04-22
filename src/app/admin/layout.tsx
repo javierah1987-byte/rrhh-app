@@ -11,7 +11,7 @@ import {
   AlertCircle, Receipt, Shield, Building2,
   Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Target,
   ChevronRight, Settings, CalendarRange, AlertTriangle, Mail, Heart
-} from 'lucide-react'
+, UserPlus } from 'lucide-react'
 
 type NavItem = { icon: any; label: string; href: string; badge?: boolean }
 type NavGroup = { id: string; label: string; icon: any; color: string; items: NavItem[] }
@@ -29,6 +29,7 @@ const GROUPS: NavGroup[] = [
     { icon:Users,     label:'Empleados',   href:'/admin/empleados' },
     { icon:Building2, label:'Centros',     href:'/admin/centros' },
     { icon:Star,      label:'Evaluaciones',href:'/admin/evaluaciones' },
+    { icon:UserPlus,  label:'Onboarding',   href:'/admin/onboarding' },
   ]},
   { id:'reclutamiento', label:'Reclutamiento', icon:Briefcase, color:'#8b5cf6', items:[
     { icon:Briefcase, label:'Vacantes',    href:'/admin/reclutamiento' },

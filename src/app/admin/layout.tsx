@@ -65,6 +65,9 @@ const GROUPS: NavGroup[] = [
     { icon:PenLine,        label:'Firmas',          href:'/admin/firmas' },
     { icon:AlertTriangle, label:'Denuncias', href:'/admin/denuncias' , feature:'denuncias'},
   ]},
+  { id:'configuracion', label:'Configuración', icon:Settings, color:'#64748b', items:[
+    { icon:Settings, label:'Ajustes empresa', href:'/admin/configuracion' },
+  ]},
 ]
 
 function Sidebar({ onClose, pendientes }: { onClose?:()=>void; pendientes:number }) {

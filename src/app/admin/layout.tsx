@@ -127,7 +127,7 @@ function Sidebar({ onClose, pendientes }: { onClose?:()=>void; pendientes:number
               </button>
               {isOpen&&(
                 <div className="ml-3 pl-3 border-l-2 border-slate-100 dark:border-slate-700 mt-0.5 mb-1 space-y-0.5">
-                  {group.filter((item: any) => !item.feature || featuresActivas.size === 0 || featuresActivas.has(item.feature)).items.map(item=>{
+                  {group.items.filter((item: any) => !item.feature || featuresActivas.size === 0 || featuresActivas.has(item.feature)).map(item=>{
                     const active=isActive(item)
                     const Icon=item.icon
                     return(

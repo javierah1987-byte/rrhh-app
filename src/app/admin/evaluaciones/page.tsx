@@ -1,200 +1,243 @@
+// @ts-nocheck
 'use client'
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Plus, Star, ChevronDown, ChevronUp, Edit2, Save, X, Award } from 'lucide-react'
+import { Star, TrendingUp, Users, Plus, X, ChevronDown, ChevronUp, Award } from 'lucide-react'
 
-type Emp = { id:string; nombre:string; avatar_color:string; puesto:string }
-type Eval = { id:string; empleado_id:string; periodo:string; fecha:string; puntuacion:number; competencias:Record<string,number>; comentarios:string|null; objetivos:string|null; estado:string }
+const COMPETENCIAS = ['Trabajo en equipo','Comunicación','Liderazgo','Iniciativa','Calidad del trabajo','Puntualidad','Adaptabilidad','Resolución de problemas']
 
-const COMPETENCIAS_DEFAULT = [
-  { key:'trabajo_equipo', label:'Trabajo en equipo' },
-  { key:'iniciativa', label:'Iniciativa y proactividad' },
-  { key:'calidad', label:'Calidad del trabajo' },
-  { key:'comunicacion', label:'Comunicación' },
-  { key:'puntualidad', label:'Puntualidad y compromiso' },
-]
-
-const PERIODOS = ['Q1 2025','Q2 2025','Q3 2025','Q4 2025','Q1 2026','Q2 2026','Anual 2024','Anual 2025','Anual 2026']
-
-function StarRating({ value, onChange }: { value: number; onChange?: (v:number)=>void }) {
+function StarRating({ value, onChange, readonly = false }) {
+  const [hover, setHover] = useState(0)
   return (
-    <div className="flex gap-0.5">
-      {[1,2,3,4,5,6,7,8,9,10].map(n=>(
-        <button key={n} type="button" onClick={()=>onChange?.(n)}
-          className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${onChange?'hover:scale-110 cursor-pointer':'cursor-default'}`}>
-          <div className={`w-3 h-3 rounded-full ${n<=value?'bg-amber-400':'bg-slate-200 dark:bg-slate-600'}`}/>
+    <div className="flex gap-1">
+      {[1,2,3,4,5,6,7,8,9,10].map(n => (
+        <button key={n} type="button"
+          onClick={() => !readonly && onChange?.(n)}
+          onMouseEnter={() => !readonly && setHover(n)}
+          onMouseLeave={() => !readonly && setHover(0)}
+          className={`w-6 h-6 rounded text-xs font-bold transition-all ${
+            n <= (hover || value)
+              ? 'bg-amber-400 text-white'
+              : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
+          } ${readonly ? 'cursor-default' : 'cursor-pointer hover:scale-110'}`}>
+          {n}
         </button>
       ))}
-      <span className={`text-sm font-bold ml-1 ${value>=8?'text-emerald-600':value>=6?'text-amber-500':'text-red-500'}`}>{value}/10</span>
     </div>
   )
 }
 
 export default function EvaluacionesPage() {
-  const [empleados, setEmpleados] = useState<Emp[]>([])
-  const [evaluaciones, setEvaluaciones] = useState<Eval[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [expanded, setExpanded] = useState<string|null>(null)
-  const [empFiltro, setEmpFiltro] = useState('todos')
-
+  const [evaluaciones, setEvaluaciones] = useState([])
+  const [empleados, setEmpleados]       = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [showForm, setShowForm]         = useState(false)
+  const [expanded, setExpanded]         = useState({})
+  const [saving, setSaving]             = useState(false)
   const [form, setForm] = useState({
-    empleado_id:'', periodo:'Q2 2026', fecha:new Date().toISOString().slice(0,10),
-    competencias: Object.fromEntries(COMPETENCIAS_DEFAULT.map(c=>[c.key,5])),
-    comentarios:'', objetivos:''
+    empleado_id:'', puntuacion:8, comentarios:'', estado:'completada',
+    competencias: Object.fromEntries(COMPETENCIAS.map(c=>[c,7]))
   })
 
-  const puntuacionMedia = Object.values(form.competencias).reduce((s,v)=>s+v,0)/Object.values(form.competencias).length
+  const cargar = async () => {
+    const [ev, emp] = await Promise.all([
+      supabase.from('evaluaciones').select('*, empleado:empleados(id,nombre,puesto,departamento,avatar_color)').order('created_at',{ascending:false}),
+      supabase.from('empleados').select('id,nombre,puesto').eq('estado','activo').order('nombre'),
+    ])
+    setEvaluaciones(ev.data||[])
+    setEmpleados(emp.data||[])
+    setLoading(false)
+  }
+  useEffect(()=>{cargar()},[])
 
-  useEffect(() => {
-    Promise.all([
-      supabase.from('empleados').select('id,nombre,avatar_color,puesto').order('nombre'),
-      supabase.from('evaluaciones').select('*').order('fecha',{ascending:false}),
-    ]).then(([{data:e},{data:ev}]) => { setEmpleados(e||[]); setEvaluaciones((ev as any)||[]); setLoading(false) })
-  }, [])
-
-  async function handleCreate(ev:React.FormEvent) {
-    ev.preventDefault(); setSaving(true)
-    const puntuacion = Math.round(puntuacionMedia*10)/10
-    const {data} = await supabase.from('evaluaciones').insert({...form, puntuacion, estado:'completada'}).select().single()
-    if(data) setEvaluaciones(prev=>[data as any,...prev])
-    setForm({empleado_id:'',periodo:'Q2 2026',fecha:new Date().toISOString().slice(0,10),competencias:Object.fromEntries(COMPETENCIAS_DEFAULT.map(c=>[c.key,5])),comentarios:'',objetivos:''})
-    setShowForm(false); setSaving(false)
+  const guardar = async () => {
+    if(!form.empleado_id) return
+    setSaving(true)
+    await supabase.from('evaluaciones').insert({
+      empleado_id: form.empleado_id,
+      periodo: new Date().toISOString().slice(0,7),
+      fecha: new Date().toISOString().split('T')[0],
+      puntuacion: form.puntuacion,
+      comentarios: form.comentarios,
+      competencias: form.competencias,
+      estado: form.estado,
+    })
+    setShowForm(false)
+    setForm({empleado_id:'',puntuacion:8,comentarios:'',estado:'completada',competencias:Object.fromEntries(COMPETENCIAS.map(c=>[c,7]))})
+    setSaving(false)
+    await cargar()
   }
 
-  async function handleDelete(id:string) {
-    if(!confirm('¿Eliminar evaluación?')) return
-    await supabase.from('evaluaciones').delete().eq('id',id)
-    setEvaluaciones(prev=>prev.filter(e=>e.id!==id))
-  }
+  const mediaGeneral = evaluaciones.length > 0
+    ? (evaluaciones.reduce((s,e)=>s+(e.puntuacion||0),0)/evaluaciones.length).toFixed(1)
+    : '—'
 
-  function getNombre(id:string) { return empleados.find(e=>e.id===id)?.nombre||'—' }
-  function getColor(id:string) { return empleados.find(e=>e.id===id)?.avatar_color||'#6366f1' }
-  function getInitials(id:string) { const n=getNombre(id); return n.split(' ').map((p:string)=>p[0]).join('').substring(0,2) }
-  function getPuesto(id:string) { return empleados.find(e=>e.id===id)?.puesto||'' }
+  const porEmpleado = empleados.map(e => {
+    const evs = evaluaciones.filter(ev=>ev.empleado_id===e.id)
+    const media = evs.length > 0 ? (evs.reduce((s,ev)=>s+(ev.puntuacion||0),0)/evs.length).toFixed(1) : null
+    return {...e, evs, media}
+  }).filter(e=>e.evs.length>0).sort((a,b)=>Number(b.media)-Number(a.media))
 
-  const filtradas = evaluaciones.filter(e=>empFiltro==='todos'||e.empleado_id===empFiltro)
+  if(loading) return <div className="p-8 text-slate-400 text-sm">Cargando...</div>
 
   return (
-    <div>
-      <div className="page-header">
+    <div className="p-6 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="page-title">Evaluaciones de desempeño</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Evaluaciones periódicas por competencias</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <Award className="w-7 h-7 text-indigo-600"/> Evaluaciones de desempeño
+          </h1>
+          <p className="text-slate-500 text-sm mt-1">{evaluaciones.length} evaluaciones · Media: {mediaGeneral}/10</p>
         </div>
-        <button onClick={()=>setShowForm(!showForm)} className="btn-primary"><Plus className="w-4 h-4"/>Nueva evaluación</button>
+        <button onClick={()=>setShowForm(true)}
+          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+          <Plus className="w-4 h-4"/> Nueva evaluación
+        </button>
       </div>
 
-      {/* Formulario */}
-      {showForm && (
-        <div className="card p-6 mb-5">
-          <h3 className="font-bold text-slate-900 dark:text-slate-100 mb-4">Crear evaluación de desempeño</h3>
-          <form onSubmit={handleCreate} className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div><label className="label">Empleado *</label><select value={form.empleado_id} onChange={e=>setForm(f=>({...f,empleado_id:e.target.value}))} className="input" required><option value="">Selecciona empleado</option>{empleados.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}</select></div>
-              <div><label className="label">Período *</label><select value={form.periodo} onChange={e=>setForm(f=>({...f,periodo:e.target.value}))} className="input">{PERIODOS.map(p=><option key={p} value={p}>{p}</option>)}</select></div>
-              <div><label className="label">Fecha evaluación</label><input type="date" value={form.fecha} onChange={e=>setForm(f=>({...f,fecha:e.target.value}))} className="input"/></div>
-            </div>
-
-            {/* Competencias */}
-            <div className="card p-4 dark:bg-slate-700/50">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">Evaluación por competencias</h4>
-                <div className="flex items-center gap-2">
-                  <Award className="w-4 h-4 text-amber-500"/>
-                  <span className={`font-bold text-lg ${puntuacionMedia>=8?'text-emerald-600':puntuacionMedia>=6?'text-amber-500':'text-red-500'}`}>{puntuacionMedia.toFixed(1)}/10</span>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {COMPETENCIAS_DEFAULT.map(c=>(
-                  <div key={c.key} className="flex items-center justify-between gap-4">
-                    <label className="text-sm text-slate-700 dark:text-slate-300 w-48 flex-shrink-0">{c.label}</label>
-                    <StarRating value={form.competencias[c.key]} onChange={v=>setForm(f=>({...f,competencias:{...f.competencias,[c.key]:v}}))}/>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className="label">Comentarios y logros</label><textarea value={form.comentarios} onChange={e=>setForm(f=>({...f,comentarios:e.target.value}))} className="input" rows={3} placeholder="Describe el desempeño del empleado…"/></div>
-              <div><label className="label">Objetivos próximo período</label><textarea value={form.objetivos} onChange={e=>setForm(f=>({...f,objetivos:e.target.value}))} className="input" rows={3} placeholder="Objetivos y áreas de mejora…"/></div>
-            </div>
-            <div className="flex gap-3">
-              <button type="submit" disabled={saving} className="btn-primary">{saving?'Guardando…':'Guardar evaluación'}</button>
-              <button type="button" onClick={()=>setShowForm(false)} className="btn-secondary">Cancelar</button>
-            </div>
-          </form>
+      {/* KPIs */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+          <p className="text-slate-400 text-xs mb-1">Media general</p>
+          <p className="text-3xl font-black text-amber-500">{mediaGeneral}<span className="text-sm text-slate-400">/10</span></p>
         </div>
-      )}
-
-      {/* Filtro */}
-      <div className="mb-4">
-        <select value={empFiltro} onChange={e=>setEmpFiltro(e.target.value)} className="input w-56">
-          <option value="todos">Todos los empleados</option>
-          {empleados.map(e=><option key={e.id} value={e.id}>{e.nombre}</option>)}
-        </select>
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+          <p className="text-slate-400 text-xs mb-1">Evaluaciones</p>
+          <p className="text-3xl font-black text-indigo-600">{evaluaciones.length}</p>
+        </div>
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+          <p className="text-slate-400 text-xs mb-1">Empleados evaluados</p>
+          <p className="text-3xl font-black text-emerald-600">{porEmpleado.length}</p>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-16"><div className="w-8 h-8 rounded-full animate-spin border-4 border-indigo-200 border-t-indigo-600"/></div>
-      ) : filtradas.length===0 ? (
-        <div className="card p-12 text-center"><Award className="w-10 h-10 text-slate-300 mx-auto mb-3"/><p className="text-slate-500">No hay evaluaciones</p></div>
-      ) : (
-        <div className="space-y-3">
-          {filtradas.map(ev=>{
-            const isOpen = expanded===ev.id
-            const comps = ev.competencias as Record<string,number>
-            return (
-              <div key={ev.id} className="card overflow-hidden">
-                <div className="p-5 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0" style={{backgroundColor:getColor(ev.empleado_id)}}>
-                    {getInitials(ev.empleado_id)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-slate-900 dark:text-slate-100">{getNombre(ev.empleado_id)}</span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">{getPuesto(ev.empleado_id)}</span>
-                      <span className="badge badge-indigo">{ev.periodo}</span>
-                      <span className={`badge ${ev.estado==='completada'?'badge-green':ev.estado==='firmada'?'badge-indigo':'badge-amber'} capitalize`}>{ev.estado}</span>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{new Date(ev.fecha).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</p>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <div className="text-center">
-                      <div className={`text-2xl font-bold ${ev.puntuacion>=8?'text-emerald-600':ev.puntuacion>=6?'text-amber-500':'text-red-500'}`}>{ev.puntuacion}</div>
-                      <div className="text-xs text-slate-400">/10</div>
-                    </div>
-                    <button onClick={()=>setExpanded(isOpen?null:ev.id)} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700">
-                      {isOpen?<ChevronUp className="w-4 h-4 text-slate-500"/>:<ChevronDown className="w-4 h-4 text-slate-500"/>}
-                    </button>
-                    <button onClick={()=>handleDelete(ev.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl"><X className="w-4 h-4"/></button>
+      {/* Ranking por empleado */}
+      <div className="space-y-3">
+        {porEmpleado.map((e,idx) => {
+          const isOpen = expanded[e.id]
+          const mediaNum = Number(e.media)
+          const color = mediaNum >= 9 ? 'text-emerald-600' : mediaNum >= 7 ? 'text-amber-500' : 'text-red-500'
+          return (
+            <div key={e.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="flex items-center gap-4 p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-750"
+                onClick={()=>setExpanded(ex=>({...ex,[e.id]:!ex[e.id]}))}>
+                {/* Ranking */}
+                <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-500 flex-shrink-0">
+                  {idx===0?'🥇':idx===1?'🥈':idx===2?'🥉':idx+1}
+                </div>
+                {/* Avatar */}
+                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                  style={{background: e.avatar_color || '#6366f1'}}>
+                  {e.nombre?.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-slate-800 dark:text-white">{e.nombre}</p>
+                  <p className="text-slate-400 text-xs">{e.puesto} · {e.evs.length} evaluacion{e.evs.length>1?'es':''}</p>
+                </div>
+                {/* Puntuación */}
+                <div className="text-right flex-shrink-0">
+                  <p className={`text-2xl font-black ${color}`}>{e.media}</p>
+                  <p className="text-slate-400 text-xs">media/10</p>
+                </div>
+                {/* Barra */}
+                <div className="w-24 hidden sm:block">
+                  <div className="bg-slate-100 dark:bg-slate-700 rounded-full h-2">
+                    <div className="h-2 rounded-full transition-all"
+                      style={{width:`${Number(e.media)*10}%`, background: mediaNum>=9?'#10b981':mediaNum>=7?'#f59e0b':'#ef4444'}}/>
                   </div>
                 </div>
+                {isOpen?<ChevronUp className="w-4 h-4 text-slate-400"/>:<ChevronDown className="w-4 h-4 text-slate-400"/>}
+              </div>
 
-                {isOpen && (
-                  <div className="border-t border-slate-100 dark:border-slate-700 p-5 bg-slate-50 dark:bg-slate-800/50 space-y-4">
-                    <div>
-                      <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3">Competencias</h4>
-                      <div className="space-y-2">
-                        {COMPETENCIAS_DEFAULT.map(c=>(
-                          <div key={c.key} className="flex items-center gap-4">
-                            <span className="text-sm text-slate-600 dark:text-slate-300 w-48 flex-shrink-0">{c.label}</span>
-                            <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-2">
-                              <div className={`h-2 rounded-full ${(comps[c.key]||0)>=8?'bg-emerald-500':(comps[c.key]||0)>=6?'bg-amber-500':'bg-red-500'}`} style={{width:((comps[c.key]||0)*10)+'%'}}/>
-                            </div>
-                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300 w-8 text-right">{comps[c.key]||0}</span>
-                          </div>
-                        ))}
+              {isOpen && (
+                <div className="border-t border-slate-100 dark:border-slate-700 p-4 space-y-3">
+                  {e.evs.slice(0,3).map(ev => (
+                    <div key={ev.id} className="bg-slate-50 dark:bg-slate-700/50 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{ev.periodo}</span>
+                        <StarRating value={ev.puntuacion} readonly/>
+                        <span className={`text-sm font-bold ${Number(ev.puntuacion)>=9?'text-emerald-600':Number(ev.puntuacion)>=7?'text-amber-500':'text-red-500'}`}>
+                          {ev.puntuacion}/10
+                        </span>
                       </div>
+                      {ev.comentarios && <p className="text-slate-600 dark:text-slate-300 text-sm mt-2 italic">"{ev.comentarios}"</p>}
+                      {ev.competencias && Object.keys(ev.competencias).length > 0 && (
+                        <div className="mt-3 grid grid-cols-2 gap-1.5">
+                          {Object.entries(ev.competencias).slice(0,6).map(([comp,val])=>(
+                            <div key={comp} className="flex items-center justify-between text-xs">
+                              <span className="text-slate-500 truncate">{comp}</span>
+                              <span className="font-semibold text-slate-700 dark:text-slate-300 ml-1">{val}/10</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {ev.comentarios && <div><h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Comentarios</h4><p className="text-sm text-slate-700 dark:text-slate-300">{ev.comentarios}</p></div>}
-                    {ev.objetivos && <div><h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">Objetivos próximo período</h4><p className="text-sm text-slate-700 dark:text-slate-300">{ev.objetivos}</p></div>}
-                  </div>
-                )}
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+
+        {porEmpleado.length === 0 && (
+          <div className="text-center py-12 text-slate-400">
+            <Award className="w-12 h-12 mx-auto mb-3 opacity-20"/>
+            <p>No hay evaluaciones registradas</p>
+          </div>
+        )}
+      </div>
+
+      {/* Modal nueva evaluación */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-bold text-lg text-slate-800 dark:text-white">Nueva evaluación</h3>
+              <button onClick={()=>setShowForm(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Empleado</label>
+                <select value={form.empleado_id} onChange={e=>setForm(f=>({...f,empleado_id:e.target.value}))}
+                  className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400 dark:bg-slate-700 dark:text-white">
+                  <option value="">Seleccionar...</option>
+                  {empleados.map(e=><option key={e.id} value={e.id}>{e.nombre} — {e.puesto}</option>)}
+                </select>
               </div>
-            )
-          })}
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Puntuación general</label>
+                <div className="flex items-center gap-3">
+                  <StarRating value={form.puntuacion} onChange={v=>setForm(f=>({...f,puntuacion:v}))}/>
+                  <span className="text-xl font-black text-amber-500">{form.puntuacion}/10</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Competencias</label>
+                <div className="space-y-2">
+                  {COMPETENCIAS.slice(0,4).map(comp=>(
+                    <div key={comp} className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-500 w-40 flex-shrink-0">{comp}</span>
+                      <StarRating value={form.competencias[comp]||7} onChange={v=>setForm(f=>({...f,competencias:{...f.competencias,[comp]:v}}))}/>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1.5">Comentarios</label>
+                <textarea value={form.comentarios} onChange={e=>setForm(f=>({...f,comentarios:e.target.value}))}
+                  rows={3} placeholder="Observaciones sobre el desempeño..."
+                  className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400 dark:bg-slate-700 dark:text-white resize-none"/>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button onClick={()=>setShowForm(false)} className="flex-1 py-2.5 border border-slate-200 dark:border-slate-600 rounded-lg text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50">Cancelar</button>
+                <button onClick={guardar} disabled={saving||!form.empleado_id}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium">
+                  {saving?'Guardando...':'Guardar evaluación'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

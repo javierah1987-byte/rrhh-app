@@ -22,119 +22,121 @@ function KPI({ icon: Icon, label, value, sub, color }) {
 }
 
 function BarRow({ label, value, max, color }) {
-  const pct = max > 0 ? (value / max) * 100 : 0
+  const pct = max > 0 ? Math.min((Number(String(value).replace(/[^0-9.]/g,'')) / max) * 100, 100) : 0
   return (
     <div className="flex items-center gap-3">
-      <span className="text-sm text-slate-600 dark:text-slate-300 w-28 truncate flex-shrink-0">{label}</span>
+      <span className="text-sm text-slate-600 dark:text-slate-300 w-32 truncate flex-shrink-0">{label}</span>
       <div className="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-2.5">
         <div className="h-2.5 rounded-full transition-all" style={{width:`${pct}%`, background: color || '#6366f1'}}/>
       </div>
-      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 w-12 text-right flex-shrink-0">{value}</span>
+      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 w-14 text-right flex-shrink-0">{value}</span>
     </div>
   )
 }
 
 export default function PeopleAnalyticsPage() {
-  const [data, setData]     = useState(null)
+  const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState('mes')
 
-  useEffect(() => {
-    loadData()
-  }, [periodo])
+  useEffect(() => { loadData() }, [periodo])
 
   const loadData = async () => {
     setLoading(true)
     const hoy = new Date()
-    const mesActual = hoy.toISOString().slice(0,7)
     const desde = periodo === 'mes'
-      ? new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString()
-      : new Date(hoy.getFullYear(), 0, 1).toISOString()
+      ? new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0]
+      : new Date(hoy.getFullYear(), 0, 1).toISOString().split('T')[0]
 
-    const [emps, fichajes, solicitudes, bajas, gastos, evaluaciones, encuestas] = await Promise.all([
-      supabase.from('empleados').select('id,nombre,puesto,departamento,rol,fecha_incorporacion,estado'),
-      supabase.from('fichajes').select('empleado_id,tipo,fecha,timestamp').gte('fecha', desde.slice(0,10)),
-      supabase.from('solicitudes_ausencia').select('empleado_id,tipo,estado,fecha_inicio,fecha_fin').gte('fecha_inicio', desde.slice(0,10)),
-      supabase.from('bajas').select('empleado_id,tipo,fecha_inicio,fecha_fin,estado').gte('fecha_inicio', desde.slice(0,10)),
+    const [r_emps, r_fich, r_sols, r_bajas, r_gastos, r_evals] = await Promise.all([
+      supabase.from('empleados').select('id,nombre,puesto,departamento,rol,fecha_alta,estado'),
+      supabase.from('fichajes').select('empleado_id,tipo,fecha').gte('fecha', desde),
+      supabase.from('solicitudes').select('empleado_id,tipo,estado,fecha_inicio').gte('fecha_inicio', desde),
+      supabase.from('bajas').select('empleado_id,tipo,fecha_inicio,fecha_alta,activa').gte('fecha_inicio', desde),
       supabase.from('gastos').select('empleado_id,importe,estado,categoria').gte('created_at', desde),
-      supabase.from('evaluaciones').select('empleado_id,puntuacion,tipo').gte('created_at', desde),
-      supabase.from('encuestas').select('puntuacion').eq('activa', false),
+      supabase.from('evaluaciones').select('empleado_id,puntuacion,estado').gte('created_at', desde),
     ])
 
-    const empleados = emps.data || []
-    const fich = fichajes.data || []
-    const sols = solicitudes.data || []
-    const bj = bajas.data || []
-    const gst = gastos.data || []
-    const evs = evaluaciones.data || []
-    const enc = encuestas.data || []
+    const empleados  = r_emps.data  || []
+    const fichajes   = r_fich.data  || []
+    const solicitudes = r_sols.data || []
+    const bajas      = r_bajas.data || []
+    const gastos     = r_gastos.data || []
+    const evals      = r_evals.data || []
 
-    // Horas por empleado (contar días únicos con fichaje entrada)
+    // Días de asistencia por empleado
     const diasPorEmp = {}
-    fich.filter(f => f.tipo === 'entrada').forEach(f => {
+    fichajes.filter(f => f.tipo === 'entrada').forEach(f => {
       if (!diasPorEmp[f.empleado_id]) diasPorEmp[f.empleado_id] = new Set()
       diasPorEmp[f.empleado_id].add(f.fecha)
     })
 
-    // Asistencia por depto
+    // Asistencia por departamento
     const deptos = {}
     empleados.forEach(e => {
       if (!e.departamento) return
-      if (!deptos[e.departamento]) deptos[e.departamento] = {total:0, dias:0}
+      if (!deptos[e.departamento]) deptos[e.departamento] = { total: 0, dias: 0 }
       deptos[e.departamento].total++
       deptos[e.departamento].dias += diasPorEmp[e.id]?.size || 0
     })
 
-    // Vacaciones pendientes por empleado
-    const vacPend = {}
-    sols.filter(s => s.tipo === 'vacaciones' && s.estado === 'pendiente').forEach(s => {
-      const emp = empleados.find(e => e.id === s.empleado_id)
-      if (emp) vacPend[emp.nombre] = (vacPend[emp.nombre] || 0) + 1
+    // Gastos por categoría (aprobados)
+    const gastosCat = {}
+    gastos.filter(g => g.estado === 'aprobado').forEach(g => {
+      const cat = g.categoria || 'Otros'
+      gastosCat[cat] = (gastosCat[cat] || 0) + Number(g.importe)
     })
 
-    // Antigüedad
+    // Antigüedad del equipo
     const ahora = new Date()
     const antiguedades = empleados.map(e => {
-      const inc = new Date(e.fecha_incorporacion || '2020-01-01')
-      const meses = Math.floor((ahora - inc) / (30 * 24 * 60 * 60 * 1000))
-      return { nombre: e.nombre, meses, años: Math.floor(meses/12) }
-    }).sort((a,b) => b.meses - a.meses)
+      const inc = e.fecha_alta ? new Date(e.fecha_alta) : new Date('2023-01-01')
+      const meses = Math.max(0, Math.floor((ahora - inc) / (30 * 24 * 60 * 60 * 1000)))
+      return { nombre: e.nombre, meses, años: Math.floor(meses / 12) }
+    }).sort((a, b) => b.meses - a.meses)
 
-    // Gastos por categoría
-    const gastosCat = {}
-    gst.forEach(g => { gastosCat[g.categoria || 'Otro'] = (gastosCat[g.categoria || 'Otro'] || 0) + Number(g.importe) })
-
-    // Puntuación media encuestas
-    const mediaClima = enc.length > 0 ? (enc.reduce((s,e) => s + (e.puntuacion||0), 0) / enc.length).toFixed(1) : '-'
-
-    // Puntuación media evaluaciones
-    const mediaEval = evs.length > 0 ? (evs.reduce((s,e) => s + (e.puntuacion||0), 0) / evs.length).toFixed(1) : '-'
-
-    // Días de baja
-    const totalDiasBaja = bj.reduce((s,b) => {
+    // Métricas clave
+    const totalDiasFichados = Object.values(diasPorEmp).reduce((s, v) => s + v.size, 0)
+    const totalGastos       = gastos.filter(g => g.estado === 'aprobado').reduce((s, g) => s + Number(g.importe), 0)
+    const ausenciaPend      = solicitudes.filter(s => s.estado === 'pendiente').length
+    const bajasActivas      = bajas.filter(b => b.activa === true || !b.fecha_alta).length
+    const totalDiasBaja     = bajas.reduce((s, b) => {
       if (!b.fecha_inicio) return s
-      const fin = b.fecha_fin ? new Date(b.fecha_fin) : new Date()
-      const ini = new Date(b.fecha_inicio)
-      return s + Math.max(0, Math.floor((fin-ini)/(86400000)))
+      const fin = b.fecha_alta ? new Date(b.fecha_alta) : new Date()
+      return s + Math.max(0, Math.floor((fin - new Date(b.fecha_inicio)) / 86400000))
     }, 0)
-
-    // Total gastos aprobados
-    const totalGastos = gst.filter(g=>g.estado==='aprobado').reduce((s,g)=>s+Number(g.importe),0)
+    const mediaEval = evals.length > 0
+      ? (evals.reduce((s, e) => s + (Number(e.puntuacion) || 0), 0) / evals.length).toFixed(1)
+      : null
 
     setData({
-      empleados, fich, sols, bj, gst, evs,
-      diasPorEmp, deptos, vacPend, antiguedades,
-      gastosCat, mediaClima, mediaEval, totalDiasBaja, totalGastos,
-      totalDiasFichados: Object.values(diasPorEmp).reduce((s,v)=>s+v.size,0),
+      empleados, fichajes, gastos, evals, bajas,
+      diasPorEmp, deptos, gastosCat, antiguedades,
+      totalDiasFichados, totalGastos, ausenciaPend, bajasActivas, totalDiasBaja, mediaEval,
     })
     setLoading(false)
   }
 
-  if (loading) return <div className="p-8 text-slate-400 text-sm">Cargando analytics...</div>
+  if (loading) return (
+    <div className="p-8">
+      <div className="animate-pulse space-y-4">
+        <div className="h-8 w-48 bg-slate-200 dark:bg-slate-700 rounded-xl"/>
+        <div className="grid grid-cols-4 gap-4">
+          {[...Array(4)].map((_,i) => <div key={i} className="h-28 bg-slate-200 dark:bg-slate-700 rounded-xl"/>)}
+        </div>
+      </div>
+    </div>
+  )
 
-  const {empleados:emps, diasPorEmp, deptos, vacPend, antiguedades, gastosCat, mediaClima, mediaEval, totalDiasBaja, totalGastos, totalDiasFichados, sols, bj} = data
-  const maxDepDias = Math.max(...Object.values(deptos).map(d=>d.dias), 1)
-  const maxGasto = Math.max(...Object.values(gastosCat), 1)
+  const {
+    empleados, diasPorEmp, deptos, gastosCat, antiguedades,
+    totalDiasFichados, totalGastos, ausenciaPend, bajasActivas, totalDiasBaja, mediaEval,
+  } = data
+
+  const maxDepDias = Math.max(...Object.values(deptos).map(d => d.dias), 1)
+  const maxGasto   = Math.max(...Object.values(gastosCat), 1)
+  const maxEmpDias = Math.max(...empleados.map(e => diasPorEmp[e.id]?.size || 0), 1)
+  const maxMeses   = Math.max(...antiguedades.map(a => a.meses), 1)
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -147,26 +149,30 @@ export default function PeopleAnalyticsPage() {
           <p className="text-slate-500 text-sm mt-1">Métricas clave de tu equipo</p>
         </div>
         <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
-          {[['mes','Este mes'],['año','Este año']].map(([k,l])=>(
-            <button key={k} onClick={()=>setPeriodo(k)}
+          {[['mes','Este mes'],['año','Este año']].map(([k,l]) => (
+            <button key={k} onClick={() => setPeriodo(k)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${periodo===k?'bg-white dark:bg-slate-700 shadow text-indigo-600':'text-slate-500 hover:text-slate-700'}`}>{l}</button>
           ))}
         </div>
       </div>
 
-      {/* KPIs principales */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <KPI icon={Users}       label="Empleados activos"   value={emps.length}               sub="en plantilla"            color="#6366f1"/>
-        <KPI icon={Clock}       label="Días fichados"        value={totalDiasFichados}          sub="registros de entrada"   color="#10b981"/>
-        <KPI icon={Smile}       label="Clima laboral"        value={mediaClima + '/10'}         sub="media encuestas"         color="#f59e0b"/>
-        <KPI icon={Award}       label="Evaluación media"     value={mediaEval !== '-' ? mediaEval + '/10' : '-'} sub="desempeño" color="#ec4899"/>
+      {/* KPIs fila 1 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <KPI icon={Users}        label="Empleados"        value={empleados.length}                          sub="en la empresa"        color="#6366f1"/>
+        <KPI icon={Clock}        label="Días fichados"    value={totalDiasFichados}                         sub="entradas registradas" color="#10b981"/>
+        <KPI icon={Award}        label="Evaluación media" value={mediaEval ? mediaEval+'/10' : 'Sin datos'} sub="desempeño"            color="#ec4899"/>
+        <KPI icon={TrendingUp}   label="Gastos aprobados" value={totalGastos.toFixed(0)+'€'}               sub="total periodo"        color="#0891b2"/>
       </div>
 
+      {/* KPIs fila 2 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <KPI icon={Calendar}     label="Días de baja"         value={totalDiasBaja}              sub="en el periodo"          color="#ef4444"/>
-        <KPI icon={TrendingUp}   label="Gastos aprobados"     value={totalGastos.toFixed(0)+'€'} sub="total periodo"          color="#0891b2"/>
-        <KPI icon={AlertTriangle} label="Ausencias pendientes" value={sols?.filter(s=>s.estado==='pendiente').length || 0} sub="por aprobar" color="#f59e0b"/>
-        <KPI icon={Users}        label="Bajas activas"         value={bj?.filter(b=>!b.fecha_fin).length || 0} sub="IT en curso" color="#8b5cf6"/>
+        <KPI icon={Calendar}      label="Días de baja"         value={totalDiasBaja}    sub="en el periodo"  color="#ef4444"/>
+        <KPI icon={AlertTriangle} label="Ausencias pendientes" value={ausenciaPend}     sub="por aprobar"    color="#f59e0b"/>
+        <KPI icon={Smile}         label="Bajas activas"        value={bajasActivas}     sub="IT en curso"    color="#8b5cf6"/>
+        <KPI icon={Users}         label="Con fichaje hoy"      value={Object.keys(diasPorEmp).filter(id => {
+          const hoy = new Date().toISOString().split('T')[0]
+          return diasPorEmp[id]?.has(hoy)
+        }).length} sub="presentes hoy" color="#10b981"/>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -175,11 +181,13 @@ export default function PeopleAnalyticsPage() {
           <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
             <Clock className="w-4 h-4 text-indigo-500"/> Asistencia por departamento
           </h3>
-          <div className="space-y-3">
-            {Object.entries(deptos).sort((a,b)=>b[1].dias-a[1].dias).map(([dep,d])=>(
-              <BarRow key={dep} label={dep} value={d.dias} max={maxDepDias} color="#6366f1"/>
-            ))}
-          </div>
+          {Object.keys(deptos).length > 0 ? (
+            <div className="space-y-3">
+              {Object.entries(deptos).sort((a,b) => b[1].dias - a[1].dias).map(([dep, d]) => (
+                <BarRow key={dep} label={dep} value={d.dias+' días'} max={maxDepDias} color="#6366f1"/>
+              ))}
+            </div>
+          ) : <p className="text-slate-400 text-sm">Sin datos de asistencia en el periodo</p>}
         </div>
 
         {/* Gastos por categoría */}
@@ -187,25 +195,24 @@ export default function PeopleAnalyticsPage() {
           <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-emerald-500"/> Gastos por categoría
           </h3>
-          <div className="space-y-3">
-            {Object.entries(gastosCat).sort((a,b)=>b[1]-a[1]).map(([cat,imp])=>(
-              <BarRow key={cat} label={cat} value={imp.toFixed(0)+'€'} max={maxGasto} color="#10b981"/>
-            ))}
-            {Object.keys(gastosCat).length === 0 && <p className="text-slate-400 text-sm">Sin gastos en el periodo</p>}
-          </div>
+          {Object.keys(gastosCat).length > 0 ? (
+            <div className="space-y-3">
+              {Object.entries(gastosCat).sort((a,b) => b[1]-a[1]).map(([cat, imp]) => (
+                <BarRow key={cat} label={cat} value={Number(imp).toFixed(0)+'€'} max={maxGasto} color="#10b981"/>
+              ))}
+            </div>
+          ) : <p className="text-slate-400 text-sm">Sin gastos aprobados en el periodo</p>}
         </div>
 
-        {/* Días fichados por persona */}
+        {/* Asistencia por persona */}
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
           <h3 className="font-bold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
             <Users className="w-4 h-4 text-indigo-500"/> Asistencia por persona
           </h3>
           <div className="space-y-3">
-            {emps.slice(0,6).map(e => {
-              const dias = diasPorEmp[e.id]?.size || 0
-              const maxDias = Math.max(...emps.map(x => diasPorEmp[x.id]?.size||0), 1)
-              return <BarRow key={e.id} label={e.nombre} value={dias+' días'} max={maxDias} color="#6366f1"/>
-            })}
+            {empleados.slice(0, 8).map(e => (
+              <BarRow key={e.id} label={e.nombre.split(' ')[0]} value={(diasPorEmp[e.id]?.size || 0)+' días'} max={maxEmpDias} color="#6366f1"/>
+            ))}
           </div>
         </div>
 
@@ -215,12 +222,11 @@ export default function PeopleAnalyticsPage() {
             <Award className="w-4 h-4 text-amber-500"/> Antigüedad del equipo
           </h3>
           <div className="space-y-3">
-            {antiguedades.slice(0,6).map(a=>{
-              const maxMeses = Math.max(...antiguedades.map(x=>x.meses), 1)
-              return <BarRow key={a.nombre} label={a.nombre}
-                value={a.años > 0 ? a.años+'a '+((a.meses%12))+'m' : a.meses+'m'}
+            {antiguedades.slice(0, 8).map(a => (
+              <BarRow key={a.nombre} label={a.nombre.split(' ')[0]}
+                value={a.años > 0 ? a.años+'a ' + (a.meses%12) + 'm' : a.meses+'m'}
                 max={maxMeses} color="#f59e0b"/>
-            })}
+            ))}
           </div>
         </div>
       </div>

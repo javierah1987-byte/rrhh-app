@@ -83,7 +83,7 @@ export default function OrganigramaPage() {
   useEffect(() => {
     supabase.from('empleados')
       .select('id,nombre,puesto,departamento,rol,manager_id')
-      .eq('estado','activo')
+      
       .order('nombre')
       .then(({data}) => { setEmpleados(data||[]); setLoading(false) })
   }, [])

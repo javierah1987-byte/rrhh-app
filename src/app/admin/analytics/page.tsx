@@ -52,7 +52,7 @@ export default function PeopleAnalyticsPage() {
       : new Date(hoy.getFullYear(), 0, 1).toISOString()
 
     const [emps, fichajes, solicitudes, bajas, gastos, evaluaciones, encuestas] = await Promise.all([
-      supabase.from('empleados').select('id,nombre,puesto,departamento,rol,fecha_incorporacion,estado').eq('estado','activo'),
+      supabase.from('empleados').select('id,nombre,puesto,departamento,rol,fecha_incorporacion,estado'),
       supabase.from('fichajes').select('empleado_id,tipo,fecha,timestamp').gte('fecha', desde.slice(0,10)),
       supabase.from('solicitudes_ausencia').select('empleado_id,tipo,estado,fecha_inicio,fecha_fin').gte('fecha_inicio', desde.slice(0,10)),
       supabase.from('bajas').select('empleado_id,tipo,fecha_inicio,fecha_fin,estado').gte('fecha_inicio', desde.slice(0,10)),

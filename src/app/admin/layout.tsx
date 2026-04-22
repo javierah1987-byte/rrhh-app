@@ -13,54 +13,54 @@ import {
   ChevronRight, Settings, CalendarRange, AlertTriangle, Mail, Heart
 , UserPlus } from 'lucide-react'
 
-type NavItem = { icon: any; label: string; href: string; badge?: boolean }
+type NavItem = { icon: any; label: string; href: string; badge?: boolean; feature?: string }
 type NavGroup = { id: string; label: string; icon: any; color: string; items: NavItem[] }
 
 const GROUPS: NavGroup[] = [
   { id:'tiempo', label:'Tiempo', icon:Timer, color:'#6366f1', items:[
-    { icon:Clock,         label:'Control horas', href:'/admin/control-horas' },
-    { icon:Wifi,          label:"Who's In",       href:'/admin/whois' },
-    { icon:Monitor,      label:'Kiosko',          href:'/kiosko' },
-    { icon:ClipboardList, label:'Horarios',       href:'/admin/horarios' },
-    { icon:AlertCircle,   label:'Correcciones',   href:'/admin/correcciones' },
-    { icon:Clock,         label:'Bolsa de horas',  href:'/admin/bolsa-horas' },
+    { icon:Clock,         label:'Control horas', href:'/admin/control-horas' , feature:'control_horario'},
+    { icon:Wifi,          label:"Who's In",       href:'/admin/whois' , feature:'control_horario'},
+    { icon:Monitor,      label:'Kiosko',          href:'/kiosko' , feature:'kiosko'},
+    { icon:ClipboardList, label:'Horarios',       href:'/admin/horarios' , feature:'turnos'},
+    { icon:AlertCircle,   label:'Correcciones',   href:'/admin/correcciones' , feature:'correcciones'},
+    { icon:Clock,         label:'Bolsa de horas',  href:'/admin/bolsa-horas' , feature:'bolsa_horas'},
   ]},
   { id:'equipo', label:'Equipo', icon:UserCheck, color:'#10b981', items:[
     { icon:Users,     label:'Empleados',   href:'/admin/empleados' },
     { icon:Building2, label:'Centros',     href:'/admin/centros' },
-    { icon:Star,      label:'Evaluaciones',href:'/admin/evaluaciones' },
-    { icon:UserPlus,  label:'Onboarding',   href:'/admin/onboarding' },
+    { icon:Star,      label:'Evaluaciones',href:'/admin/evaluaciones' , feature:'evaluaciones'},
+    { icon:UserPlus,  label:'Onboarding',   href:'/admin/onboarding' , feature:'onboarding'},
   ]},
   { id:'reclutamiento', label:'Reclutamiento', icon:Briefcase, color:'#8b5cf6', items:[
-    { icon:Briefcase, label:'Vacantes',    href:'/admin/reclutamiento' },
+    { icon:Briefcase, label:'Vacantes',    href:'/admin/reclutamiento' , feature:'reclutamiento'},
   ]},
   { id:'ausencias', label:'Ausencias', icon:CalendarRange, color:'#f59e0b', items:[
-    { icon:CalendarDays, label:'Solicitudes', href:'/admin/vacaciones', badge:true },
-    { icon:FileText,     label:'Bajas',        href:'/admin/bajas' },
-    { icon:Calendar,     label:'Calendario',   href:'/admin/calendario' },
-    { icon:CalendarDays, label:'Festivos',      href:'/admin/festivos' },
+    { icon:CalendarDays, label:'Solicitudes', href:'/admin/vacaciones', badge:true , feature:'vacaciones'},
+    { icon:FileText,     label:'Bajas',        href:'/admin/bajas' , feature:'bajas'},
+    { icon:Calendar,     label:'Calendario',   href:'/admin/calendario' , feature:'vacaciones'},
+    { icon:CalendarDays, label:'Festivos',      href:'/admin/festivos' , feature:'vacaciones'},
   ]},
   { id:'administracion', label:'Administración', icon:Wallet, color:'#0891b2', items:[
-    { icon:DollarSign, label:'Nóminas',       href:'/admin/nominas' },
-    { icon:Receipt,    label:'Gastos',          href:'/admin/gastos' },
-    { icon:FileText,   label:'Documentos',      href:'/admin/documentos' },
+    { icon:DollarSign, label:'Nóminas',       href:'/admin/nominas' , feature:'nominas'},
+    { icon:Receipt,    label:'Gastos',          href:'/admin/gastos' , feature:'gastos'},
+    { icon:FileText,   label:'Documentos',      href:'/admin/documentos' , feature:'documentos'},
     { icon:Briefcase,  label:'Petición docs', href:'/admin/solicitudes-documentos' },
-      { icon:PenLine,    label:'Firmas',         href:'/admin/firmas' },
-    { icon:BarChart2,  label:'Informes',        href:'/admin/informes' },
-    { icon:Mail,         label:'Cola emails',   href:'/admin/email-queue' },
-      { icon:Target,      label:'OKR',             href:'/admin/okr' },
+      { icon:PenLine,    label:'Firmas',         href:'/admin/firmas' , feature:'firmas'},
+    { icon:BarChart2,  label:'Informes',        href:'/admin/informes' , feature:'informes'},
+    { icon:Mail,         label:'Cola emails',   href:'/admin/email-queue' , feature:'avisos'},
+      { icon:Target,      label:'OKR',             href:'/admin/okr' , feature:'okr'},
       { icon:Building2,  label:'Mi empresa',      href:'/admin/empresa' },
   ]},
   { id:'comunicacion', label:'Comunicación', icon:Megaphone, color:'#ec4899', items:[
-    { icon:Bell,          label:'Avisos',       href:'/admin/avisos' },
-    { icon:Heart,        label:'Clima laboral', href:'/admin/encuestas' },
-    { icon:MessageSquare, label:'Mensajes',     href:'/admin/mensajes' },
-    { icon:Gift,          label:'Recordatorios',href:'/admin/recordatorios' },
+    { icon:Bell,          label:'Avisos',       href:'/admin/avisos' , feature:'avisos'},
+    { icon:Heart,        label:'Clima laboral', href:'/admin/encuestas' , feature:'clima_laboral'},
+    { icon:MessageSquare, label:'Mensajes',     href:'/admin/mensajes' , feature:'mensajes'},
+    { icon:Gift,          label:'Recordatorios',href:'/admin/recordatorios' , feature:'recordatorios'},
   ]},
   { id:'cumplimiento', label:'Cumplimiento', icon:Lock, color:'#8b5cf6', items:[
-    { icon:Shield,         label:'RGPD',           href:'/admin/rgpd' },
+    { icon:Shield,         label:'RGPD',           href:'/admin/rgpd' , feature:'rgpd'},
     { icon:PenLine,        label:'Firmas',          href:'/admin/firmas' },
-    { icon:AlertTriangle, label:'Denuncias', href:'/admin/denuncias' },
+    { icon:AlertTriangle, label:'Denuncias', href:'/admin/denuncias' , feature:'denuncias'},
   ]},
 ]
 
@@ -127,7 +127,7 @@ function Sidebar({ onClose, pendientes }: { onClose?:()=>void; pendientes:number
               </button>
               {isOpen&&(
                 <div className="ml-3 pl-3 border-l-2 border-slate-100 dark:border-slate-700 mt-0.5 mb-1 space-y-0.5">
-                  {group.items.map(item=>{
+                  {group.filter((item: any) => !item.feature || featuresActivas.size === 0 || featuresActivas.has(item.feature)).items.map(item=>{
                     const active=isActive(item)
                     const Icon=item.icon
                     return(
@@ -161,6 +161,7 @@ function Sidebar({ onClose, pendientes }: { onClose?:()=>void; pendientes:number
 }
 
 export default function AdminLayout({children}:{children:React.ReactNode}){
+  const [featuresActivas, setFeaturesActivas] = useState<Set<string>>(new Set())
   const [pendientes,setPendientes]=useState(0)
   const [mobileOpen,setMobileOpen]=useState(false)
   const router=useRouter()

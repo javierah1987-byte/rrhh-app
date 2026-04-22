@@ -35,7 +35,7 @@ export default function EmpleadoHome() {
       const [r_fich, r_sols, r_noms] = await Promise.all([
         supabase.from('fichajes').select('*').eq('empleado_id', eid).eq('fecha', hoy).order('timestamp', {ascending:false}),
         supabase.from('solicitudes').select('*').eq('empleado_id', eid).order('created_at', {ascending:false}).limit(5),
-        supabase.from('nominas').select('*').eq('empleado_id', eid).order('periodo', {ascending:false}).limit(3),
+        supabase.from('nominas').select('*').eq('empleado_id', eid).order('anio', {ascending:false}).order('mes', {ascending:false}).limit(3),
       ])
       setFichajes(r_fich.data || [])
       setSolicitudes(r_sols.data || [])
@@ -122,8 +122,8 @@ export default function EmpleadoHome() {
         </div>
         <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
           <p className="text-slate-400 text-xs mb-1">Última nómina</p>
-          <p className="text-lg font-black text-amber-600">{nominas[0] ? nominas[0].periodo : '—'}</p>
-          <p className="text-slate-400 text-xs">{nominas[0] ? ((nominas[0].salario_neto || nominas[0].neto || 0).toFixed(0) + '€ neto') : 'Sin registros'}</p>
+          <p className="text-lg font-black text-amber-600">{nominas[0] ? (nominas[0].mes+'/'+nominas[0].anio) : '—'}</p>
+          <p className="text-slate-400 text-xs">{nominas[0] ? ((nominas[0].liquido || 0).toFixed(0) + '€ neto') : 'Sin registros'}</p>
         </div>
       </div>
 

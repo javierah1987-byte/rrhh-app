@@ -41,7 +41,7 @@ export default function SuperAdminPage() {
     supabase.auth.getUser().then(async ({data:{user}}) => {
       if (!user) { setLoading(false); return }
       setAuth(user)
-      const {data} = await supabase.from('super_admins').select('*').eq('email', user.email).eq('activo', true).single()
+      const {data} = await supabase.from('super_admins').select('email,activo').eq('email', user.email).eq('activo', true).maybeSingle()
       if (data) { setIsSuperAdmin(true); await cargar() }
       setLoading(false)
     })
@@ -49,11 +49,14 @@ export default function SuperAdminPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault(); setLoginError('')
-    const {error} = await supabase.auth.signInWithPassword({email, password})
-    if (error) { setLoginError('Credenciales incorrectas'); return }
-    const {data:{user}} = await supabase.auth.getUser()
-    const {data} = await supabase.from('super_admins').select('*').eq('email', user.email).eq('activo', true).single()
-    if (!data) { setLoginError('No tienes acceso de Super Admin'); await supabase.auth.signOut(); return }
+    const {data: signInData, error} = await supabase.auth.signInWithPassword({email, password})
+    if (error) { setLoginError('Credenciales incorrectas: ' + error.message); return }
+    const user = signInData?.user
+    if (!user) { setLoginError('Error al obtener usuario'); return }
+    // Verificar acceso super admin
+    const {data, error: saError} = await supabase.from('super_admins').select('email,activo').eq('email', user.email).eq('activo', true).maybeSingle()
+    if (saError) { setLoginError('Error RLS: ' + saError.message); await supabase.auth.signOut(); return }
+    if (!data) { setLoginError('Email no autorizado como Super Admin: ' + user.email); await supabase.auth.signOut(); return }
     setAuth(user); setIsSuperAdmin(true); await cargar()
   }
 

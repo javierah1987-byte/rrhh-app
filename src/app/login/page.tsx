@@ -13,30 +13,37 @@ export default function LoginPage() {
   const [error, setError]       = useState('')
   const router = useRouter()
 
-  const handleLogin = async (e) => {
-    e.preventDefault()
+  const doLogin = async (em, pw) => {
     setLoading(true); setError('')
-    const { data, error: err } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error: err } = await supabase.auth.signInWithPassword({ email: em, password: pw })
     if (err) { setError('Email o contraseña incorrectos'); setLoading(false); return }
     const user = data?.user
     if (!user) { setError('Error de autenticación'); setLoading(false); return }
-    const { data: emp } = await supabase.from('empleados').select('rol').eq('user_id', user.id).single()
-    const rol = emp?.rol || 'empleado'
-    if (rol === 'owner' || rol === 'admin' || rol === 'manager') {
+
+    // Obtener rol + empresa + plan
+    const { data: emp } = await supabase
+      .from('empleados')
+      .select('rol, empresa_id, empresas(plan)')
+      .eq('user_id', user.id)
+      .single()
+
+    const rol  = emp?.rol || 'empleado'
+    const plan = emp?.empresas?.plan || 'professional'
+    const esAdmin = ['owner','admin','manager'].includes(rol)
+
+    // Redirect según plan y rol
+    if (esAdmin && plan === 'fichaje') {
+      router.push('/fichaje')
+    } else if (esAdmin) {
       router.push('/admin')
     } else {
       router.push('/empleado')
     }
   }
 
-  const demoLogin = async (em, pw) => {
-    setEmail(em); setPassword(pw)
-    setLoading(true); setError('')
-    const { data, error: err } = await supabase.auth.signInWithPassword({ email: em, password: pw })
-    if (err) { setError('Error en demo login'); setLoading(false); return }
-    const { data: emp } = await supabase.from('empleados').select('rol').eq('user_id', data.user.id).single()
-    const rol = emp?.rol || 'empleado'
-    router.push(rol === 'owner' || rol === 'admin' || rol === 'manager' ? '/admin' : '/empleado')
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    await doLogin(email, password)
   }
 
   return (
@@ -87,12 +94,12 @@ export default function LoginPage() {
           <div className="mt-6 pt-5 border-t border-white/10">
             <p className="text-indigo-300 text-xs text-center mb-3">Acceso rápido demo</p>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={()=>demoLogin('admin@acme.com','admin123')}
+              <button onClick={()=>doLogin('admin@acme.com','admin123')}
                 className="bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl px-3 py-2.5 text-left transition-colors">
                 <p className="text-white text-xs font-semibold">👤 Admin</p>
                 <p className="text-indigo-300 text-[10px]">Panel administrador</p>
               </button>
-              <button onClick={()=>demoLogin('luis@acme.com','1234')}
+              <button onClick={()=>doLogin('luis@acme.com','1234')}
                 className="bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl px-3 py-2.5 text-left transition-colors">
                 <p className="text-white text-xs font-semibold">👷 Empleado</p>
                 <p className="text-indigo-300 text-[10px]">Portal empleado</p>

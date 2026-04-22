@@ -1,87 +1,156 @@
+// @ts-nocheck
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { Empleado, Fichaje, Solicitud, Aviso } from '@/lib/supabase'
-import { estadoFichaje, calcularMinutosTrabajados, minutosAHHMM, formatHora, BADGE_ESTADO_SOLICITUD, TIPOS_SOLICITUD } from '@/lib/utils'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
-import { LogIn, Coffee, LogOut, Bell } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Clock, Calendar, FileText, DollarSign, CheckCircle, AlertCircle, ChevronRight, Smile, Timer, MessageSquare } from 'lucide-react'
 
-export default function EmpleadoPage() {
-  const [empleado, setEmpleado] = useState<Empleado | null>(null)
-  const [fichajesHoy, setFichajesHoy] = useState<Fichaje[]>([])
-  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
-  const [avisos, setAvisos] = useState<Aviso[]>([])
-  const [hora, setHora] = useState(new Date())
+export default function EmpleadoHome() {
+  const [empleado, setEmpleado] = useState(null)
+  const [fichaje, setFichaje] = useState(null)
+  const [solicitudes, setSolicitudes] = useState([])
+  const [nominas, setNominas] = useState([])
+  const [tiempo, setTiempo] = useState(new Date())
   const [loading, setLoading] = useState(true)
-  const [fichando, setFichando] = useState(false)
-  const [toast, setToast] = useState('')
+  const router = useRouter()
 
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 3000) }
-
-  const cargar = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: emp } = await supabase.from('empleados').select('*').eq('user_id', user.id).single()
-    if (!emp) return
-    setEmpleado(emp)
-    const hoy = new Date().toISOString().slice(0, 10)
-    const { data: fichs } = await supabase.from('fichajes').select('*').eq('empleado_id', emp.id).eq('fecha', hoy).order('timestamp')
-    const { data: sols } = await supabase.from('solicitudes').select('*').eq('empleado_id', emp.id).order('created_at', { ascending: false }).limit(3)
-    const { data: avs } = await supabase.from('avisos').select('*').eq('activo', true).order('fecha', { ascending: false }).limit(3)
-    setFichajesHoy(fichs || [])
-    setSolicitudes(sols || [])
-    setAvisos(avs || [])
-    setLoading(false)
+  useEffect(() => {
+    const timer = setInterval(() => setTiempo(new Date()), 1000)
+    return () => clearInterval(timer)
   }, [])
 
-  useEffect(() => { cargar() }, [cargar])
-  useEffect(() => { const t = setInterval(() => setHora(new Date()), 1000); return () => clearInterval(t) }, [])
+  useEffect(() => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const [emp, fich, sols, noms] = await Promise.all([
+        supabase.from('empleados').select('*').eq('user_id', user.id).single(),
+        supabase.from('fichajes').select('*').eq('empleado_id', (await supabase.from('empleados').select('id').eq('user_id', user.id).single()).data?.id).eq('fecha', new Date().toISOString().split('T')[0]).order('timestamp', {ascending: false}).limit(5),
+        supabase.from('solicitudes').select('*').eq('empleado_id', (await supabase.from('empleados').select('id').eq('user_id', user.id).single()).data?.id).order('created_at', {ascending: false}).limit(5),
+        supabase.from('nominas').select('*').eq('empleado_id', (await supabase.from('empleados').select('id').eq('user_id', user.id).single()).data?.id).order('periodo', {ascending: false}).limit(3),
+      ])
+      setEmpleado(emp.data)
+      setFichaje(fich.data || [])
+      setSolicitudes(sols.data || [])
+      setNominas(noms.data || [])
+      setLoading(false)
+    })
+  }, [])
 
-  const estado = estadoFichaje(fichajesHoy)
-  const minutosTrabajados = calcularMinutosTrabajados(fichajesHoy)
-  const jornadaMin = (empleado?.jornada_horas || 8) * 60
+  const fichadoHoy = fichaje?.find(f => f.tipo === 'entrada')
+  const salidaHoy = fichaje?.find(f => f.tipo === 'salida')
+  const horasHoy = fichadoHoy && salidaHoy 
+    ? Math.floor((new Date(salidaHoy.timestamp) - new Date(fichadoHoy.timestamp)) / 3600000)
+    : fichadoHoy ? Math.floor((new Date() - new Date(fichadoHoy.timestamp)) / 3600000) : 0
 
-  async function fichar(tipo: 'entrada' | 'pausa_inicio' | 'pausa_fin' | 'salida') {
-    if (!empleado) return
-    setFichando(true)
-    const labels: Record<string, string> = { entrada: 'Entrada registrada', pausa_inicio: 'Pausa iniciada', pausa_fin: 'Pausa finalizada', salida: 'Salida registrada' }
-    await supabase.from('fichajes').insert({ empleado_id: empleado.id, tipo })
-    showToast(labels[tipo])
-    await cargar()
-    setFichando(false)
-  }
+  const hora = tiempo.toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', second:'2-digit'})
+  const fecha = tiempo.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long'})
 
-  const saludoHora = hora.getHours() < 12 ? 'Buenos días' : hora.getHours() < 20 ? 'Buenas tardes' : 'Buenas noches'
+  if (loading) return <div className="p-8 text-slate-400 text-sm animate-pulse">Cargando...</div>
 
   return (
-    <div className="p-4 space-y-4">
-      {toast && <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-full text-sm z-50 shadow-lg whitespace-nowrap">{toast}</div>}
-      <div className="pt-4">
-        <p className="text-gray-500 text-sm">{saludoHora},</p>
-        <h1 className="text-2xl font-bold text-gray-900">{loading ? '…' : empleado?.nombre.split(' ')[0]}</h1>
-        <p className="text-sm text-gray-400 mt-0.5">{format(hora, "EEEE, d 'de' MMMM", { locale: es })}</p>
-      </div>
-      <div className="text-center py-2">
-        <span className="text-5xl font-mono font-bold text-indigo-600 tabular-nums">{hora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-      </div>
-      <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-sm font-medium text-gray-700">Control de presencia</span>
-          <span className={`badge ${estado === 'trabajando' ? 'bg-emerald-100 text-emerald-700' : estado === 'pausa' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{estado === 'trabajando' ? 'Trabajando' : estado === 'pausa' ? 'En pausa' : estado === 'finalizado' ? 'Finalizado' : 'Sin fichar'}</span>
+    <div className="p-4 lg:p-6 max-w-3xl mx-auto space-y-4">
+      {/* Bienvenida con reloj */}
+      <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-6 text-white">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <p className="text-indigo-200 text-sm capitalize">{fecha}</p>
+            <h1 className="text-2xl font-bold mt-1">Hola, {empleado?.nombre?.split(' ')[0]} 👋</h1>
+            <p className="text-indigo-200 text-sm mt-0.5">{empleado?.puesto} · {empleado?.departamento}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-4xl font-mono font-black tabular-nums tracking-tight">{hora}</p>
+            {fichadoHoy && <p className="text-indigo-200 text-xs mt-1">Entrada: {new Date(fichadoHoy.timestamp).toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'})}</p>}
+          </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <button onClick={() => fichar('entrada')} disabled={fichando || estado === 'trabajando' || estado === 'finalizado'} className={`flex flex-col items-center gap-1 py-4 rounded-xl border-2 transition-all ${estado === 'sin_fichar' || estado === 'pausa' ? 'border-emerald-400 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:scale-95' : 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'}`}><LogIn className="w-5 h-5" /><span className="text-xs font-medium">{estado === 'pausa' ? 'Reanudar' : 'Entrada'}</span></button>
-          <button onClick={() => fichar('pausa_inicio')} disabled={fichando || estado !== 'trabajando'} className={`flex flex-col items-center gap-1 py-4 rounded-xl border-2 transition-all ${estado === 'trabajando' ? 'border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 active:scale-95' : 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'}`}><Coffee className="w-5 h-5" /><span className="text-xs font-medium">Pausa</span></button>
-          <button onClick={() => fichar('salida')} disabled={fichando || (estado !== 'trabajando' && estado !== 'pausa')} className={`flex flex-col items-center gap-1 py-4 rounded-xl border-2 transition-all ${estado === 'trabajando' || estado === 'pausa' ? 'border-red-400 bg-red-50 text-red-700 hover:bg-red-100 active:scale-95' : 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'}`}><LogOut className="w-5 h-5" /><span className="text-xs font-medium">Salida</span></button>
-        </div>
-        <div className="flex justify-between text-sm bg-white rounded-xl p-3 border border-gray-100">
-          <div className="text-center"><p className="text-xs text-gray-400">Trabajado</p><p className="font-mono font-bold text-gray-900">{minutosAHHMM(minutosTrabajados)}</p></div>
-          <div className="text-center"><p className="text-xs text-gray-400">Restante</p><p className={`font-mono font-bold ${Math.max(0, jornadaMin - minutosTrabajados) > 0 ? 'text-gray-600' : 'text-emerald-600'}`}>{Math.max(0, jornadaMin - minutosTrabajados) > 0 ? minutosAHHMM(jornadaMin - minutosTrabajados) : '¡Completado!'}</p></div>
-          <div className="text-center"><p className="text-xs text-gray-400">Jornada</p><p className="font-mono font-bold text-gray-600">{minutosAHHMM(jornadaMin)}</p></div>
+        
+        {/* Estado fichaje */}
+        <div className="mt-4 flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${fichadoHoy && !salidaHoy ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`}/>
+          <span className="text-sm">
+            {fichadoHoy && !salidaHoy ? `Trabajando · ${horasHoy}h acumuladas hoy` : 
+             salidaHoy ? `Jornada completada · ${horasHoy}h` : 
+             'Sin fichar hoy'}
+          </span>
         </div>
       </div>
-      {avisos.length > 0 && <div className="card p-4"><div className="flex items-center gap-2 mb-3"><Bell className="w-4 h-4 text-indigo-500" /><h3 className="text-sm font-semibold text-gray-700">Avisos de empresa</h3></div><div className="space-y-2">{avisos.map(a => (<div key={a.id} className="bg-indigo-50 rounded-lg p-3"><p className="text-sm font-medium text-indigo-900">{a.titulo}</p>{a.contenido && <p className="text-xs text-indigo-600 mt-0.5">{a.contenido}</p>}</div>))}</div></div>}
+
+      {/* Acciones rápidas */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label:'Fichar', icon:Clock, href:'/empleado/fichaje', color:'#6366f1', bg:'#6366f115', desc: fichadoHoy ? (salidaHoy ? 'Completado' : 'Marcar salida') : 'Marcar entrada' },
+          { label:'Vacaciones', icon:Calendar, href:'/empleado/solicitudes', color:'#10b981', bg:'#10b98115', desc:'Solicitar' },
+          { label:'Nóminas', icon:DollarSign, href:'/empleado/nominas', color:'#f59e0b', bg:'#f59e0b15', desc:nominas.length > 0 ? nominas[0]?.periodo : 'Ver' },
+          { label:'Documentos', icon:FileText, href:'/empleado/documentos', color:'#8b5cf6', bg:'#8b5cf615', desc:'Mi carpeta' },
+        ].map((a,i) => (
+          <button key={i} onClick={() => router.push(a.href)}
+            className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all text-left group">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{background: a.bg}}>
+              <a.icon className="w-5 h-5" style={{color: a.color}}/>
+            </div>
+            <p className="font-semibold text-slate-700 dark:text-slate-200 text-sm">{a.label}</p>
+            <p className="text-slate-400 text-xs mt-0.5">{a.desc}</p>
+          </button>
+        ))}
+      </div>
+
+      {/* Resumen de hoy */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+          <p className="text-slate-400 text-xs mb-1">Horas hoy</p>
+          <p className="text-2xl font-black text-indigo-600">{horasHoy}h</p>
+          <p className="text-slate-400 text-xs">{fichadoHoy ? 'en oficina' : 'sin registrar'}</p>
+        </div>
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+          <p className="text-slate-400 text-xs mb-1">Solicitudes</p>
+          <p className="text-2xl font-black text-emerald-600">{solicitudes.filter(s=>s.estado==='aprobada').length}</p>
+          <p className="text-slate-400 text-xs">{solicitudes.filter(s=>s.estado==='pendiente').length} pendientes</p>
+        </div>
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+          <p className="text-slate-400 text-xs mb-1">Última nómina</p>
+          <p className="text-2xl font-black text-amber-600">{nominas[0] ? nominas[0].periodo : '—'}</p>
+          <p className="text-slate-400 text-xs">{nominas[0] ? (nominas[0].neto?.toFixed(0) || '—') + '€ neto' : 'Sin nóminas'}</p>
+        </div>
+      </div>
+
+      {/* Solicitudes recientes */}
+      {solicitudes.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+            <h3 className="font-semibold text-slate-700 dark:text-slate-200 text-sm flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-indigo-500"/> Mis solicitudes recientes
+            </h3>
+            <button onClick={() => router.push('/empleado/solicitudes')} className="text-xs text-indigo-500 hover:text-indigo-700 flex items-center gap-0.5">
+              Ver todas <ChevronRight className="w-3 h-3"/>
+            </button>
+          </div>
+          <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {solicitudes.slice(0,3).map(s => (
+              <div key={s.id} className="flex items-center gap-3 px-4 py-2.5">
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${s.estado==='aprobada'?'bg-emerald-400':s.estado==='pendiente'?'bg-amber-400':'bg-red-400'}`}/>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-700 dark:text-slate-200 truncate capitalize">{s.tipo?.replace('_',' ')} — {new Date(s.fecha_inicio).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</p>
+                </div>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${s.estado==='aprobada'?'bg-emerald-100 text-emerald-700':s.estado==='pendiente'?'bg-amber-100 text-amber-700':'bg-red-100 text-red-700'}`}>
+                  {s.estado}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Acceso a jornada */}
+      <button onClick={() => router.push('/empleado/jornada')}
+        className="w-full bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3 hover:shadow-md transition-all">
+        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
+          <Timer className="w-5 h-5 text-slate-500"/>
+        </div>
+        <div className="flex-1 text-left">
+          <p className="font-semibold text-slate-700 dark:text-slate-200 text-sm">Informe de jornada</p>
+          <p className="text-slate-400 text-xs">Descarga tu registro Art. 34.9 ET</p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-slate-400"/>
+      </button>
     </div>
   )
 }

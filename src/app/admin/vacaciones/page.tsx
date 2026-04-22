@@ -15,10 +15,9 @@ export default function AdminVacacionesPage() {
   const [motivo, setMotivo]           = useState('')
 
   const cargar = useCallback(async () => {
-    const q = supabase.from('solicitudes')
+    const { data } = await supabase.from('solicitudes')
       .select('*, empleados(nombre,puesto,departamento,avatar_color)')
       .order('created_at', {ascending:false})
-    const { data } = filtro === 'todas' ? await q : await q.eq('estado', filtro)
     setSolicitudes(data||[])
     setLoading(false)
   }, [filtro])
@@ -44,6 +43,7 @@ export default function AdminVacacionesPage() {
     aprobada:  solicitudes.filter(s=>s.estado==='aprobada').length,
     rechazada: solicitudes.filter(s=>s.estado==='rechazada').length,
   }
+  const solicitudesFiltradas = filtro === 'todas' ? solicitudes : solicitudes.filter(s=>s.estado===filtro)
 
   return (
     <div className="p-4 lg:p-6 space-y-5">
@@ -98,7 +98,7 @@ export default function AdminVacacionesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {solicitudes.map(s=>{
+          {solicitudesFiltradas.map(s=>{
             const emp = s.empleados
             const dias = s.fecha_fin && s.fecha_inicio ? Math.max(1,Math.ceil((new Date(s.fecha_fin)-new Date(s.fecha_inicio))/86400000)+1) : 1
             const isPending = s.estado==='pendiente'

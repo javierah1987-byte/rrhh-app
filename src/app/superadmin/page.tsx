@@ -7,6 +7,7 @@ import { CheckCircle, XCircle, Shield, Crown, Zap, Star, LogOut, RefreshCw, Chev
 const PLAN_COLORS = { starter:'#6366f1', professional:'#10b981', enterprise:'#f59e0b', fichaje:'#0891b2' }
 const PLAN_ICONS  = { starter: Star, professional: Zap, enterprise: Crown, fichaje: Shield }
 const PLAN_LABELS = { starter:'Starter', professional:'Professional', enterprise:'Enterprise', fichaje:'Fichaje' }
+const PLAN_ORDER  = { fichaje:0, starter:1, professional:2, enterprise:3 }
 const CAT_LABELS  = { tiempo:'⏰ Tiempo', ausencias:'📅 Ausencias', equipo:'👥 Equipo', reclutamiento:'💼 Reclutamiento', admin:'⚙️ Admin', comunicacion:'💬 Comunicación', cumplimiento:'🔒 Cumplimiento', premium:'💎 Premium', objetivos:'🎯 Objetivos', tareas:'✅ Tareas', formacion:'📚 Formación' }
 const SECTORES = ['Hostelería','Retail','Tecnología','Salud','Construcción','Educación','Finanzas','Logística','Industria','Servicios profesionales','Otro']
 const SURL = 'https://mmujjxoywrfolbvmotya.supabase.co'

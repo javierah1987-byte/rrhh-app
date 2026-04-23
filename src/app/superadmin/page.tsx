@@ -4,165 +4,88 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Building2, CheckCircle, XCircle, Shield, Crown, Zap, Star, ToggleLeft, ToggleRight, LogOut, RefreshCw, ChevronDown, ChevronUp, Plus, X, TrendingUp, Users, Trash2, AlertTriangle } from 'lucide-react'
 
-const PLAN_COLORS = { starter:'#6366f1', professional:'#10b981', enterprise:'#f59e0b' }
-const PLAN_ICONS  = { starter: Star, professional: Zap, enterprise: Crown }
-const CAT_LABELS  = { tiempo:'⏰ Tiempo', ausencias:'📅 Ausencias', equipo:'👥 Equipo', reclutamiento:'💼 Reclutamiento', admin:'🗂️ Administración', objetivos:'🎯 Objetivos', formacion:'📚 Formación', tareas:'✅ Tareas', comunicacion:'💬 Comunicación', cumplimiento:'🛡️ Cumplimiento', premium:'⭐ Premium' }
+const PLAN_COLORS = { starter:'#6366f1', professional:'#10b981', enterprise:'#f59e0b', fichaje:'#0891b2' }
+const PLAN_ICONS  = { starter: Star, professional: Zap, enterprise: Crown, fichaje: Shield }
+const CAT_LABELS  = { tiempo:'⏰ Tiempo', ausencias:'📅 Ausencias', equipo:'👥 Equipo', reclutamiento:'💼 Reclutamiento', admin:'⚙️ Admin', comunicacion:'💬 Comunicación', cumplimiento:'🔒 Cumplimiento', premium:'💎 Premium', objetivos:'🎯 Objetivos', tareas:'✅ Tareas', formacion:'📚 Formación' }
 
 export default function SuperAdminPage() {
-  const [auth, setAuth]               = useState(null)
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
-  const [loading, setLoading]         = useState(true)
-  const [email, setEmail]             = useState('')
-  const [password, setPassword]       = useState('')
-  const [loginError, setLoginError]   = useState('')
-  const [planes, setPlanes]           = useState([])
-  const [features, setFeatures]       = useState([])
+  const [isAuth, setIsAuth]       = useState(false)
+  const [pinInput, setPinInput]   = useState('')
+  const [pinError, setPinError]   = useState(false)
+  const PIN = 'Tryvor2024!'
+  const [empresas, setEmpresas]   = useState([])
+  const [planes, setPlanes]       = useState([])
+  const [features, setFeatures]   = useState([])
   const [planFeatures, setPlanFeatures] = useState([])
-  const [empresas, setEmpresas]       = useState([])
-  const [configs, setConfigs]         = useState([])
-  const [overrides, setOverrides]     = useState([])
+  const [configs, setConfigs]     = useState([])
+  const [overrides, setOverrides] = useState([])
+  const [loading, setLoading]     = useState(true)
   const [activeTab, setActiveTab]     = useState('clientes')
   const [confirmDelete, setConfirmDelete] = useState(null)
   const [expandedEmp, setExpandedEmp] = useState(null)
   const [saving, setSaving]           = useState(null)
-  const [showNewCliente, setShowNewCliente] = useState(false)
-  const [newNombre, setNewNombre]     = useState('')
-  const [newEmail, setNewEmail]       = useState('')
-  const [newPlan, setNewPlan]         = useState('starter')
-  const [creatingCliente, setCreatingCliente] = useState(false)
+  const [newEmpModal, setNewEmpModal] = useState(false)
+  const [newEmpForm, setNewEmpForm]   = useState({ nombre:'', email:'', plan:'starter', max_empleados:'10' })
+  const [savingNew, setSavingNew]     = useState(false)
 
   const cargar = useCallback(async () => {
-    const [p,f,pf,e,c,ov] = await Promise.all([
-      supabase.from('planes').select('*').order('orden'),
-      supabase.from('features').select('*').order('categoria,nombre'),
+    setLoading(true)
+    const [{ data: emps }, { data: pls }, { data: feats }, { data: pfs }, { data: cfgs }, { data: ovs }] = await Promise.all([
+      supabase.from('empresas').select('*').order('created_at', {ascending:false}),
+      supabase.from('planes').select('*').order('precio_mes'),
+      supabase.from('features').select('*').order('categoria').order('nombre'),
       supabase.from('plan_features').select('*'),
-      supabase.from('empresas').select('id,nombre'),
-      supabase.from('empresas_config').select('*'),
-      supabase.from('empresas_features_override').select('*'),
+      supabase.from('config_empresa').select('*'),
+      supabase.from('empresa_feature_overrides').select('*'),
     ])
-    setPlanes(p.data||[])
-    setFeatures(f.data||[])
-    setPlanFeatures(pf.data||[])
-    setEmpresas(e.data||[])
-    setConfigs(c.data||[])
-    setOverrides(ov.data||[])
+    setEmpresas(emps||[])
+    setPlanes(pls||[])
+    setFeatures(feats||[])
+    setPlanFeatures(pfs||[])
+    setConfigs(cfgs||[])
+    setOverrides(ovs||[])
+    setLoading(false)
   }, [])
 
-  useEffect(() => {
-    supabase.auth.getUser().then(async ({data:{user}}) => {
-      if (!user) { setLoading(false); return }
-      setAuth(user)
-      const {data} = await supabase.from('super_admins').select('email,activo').eq('email', user.email).eq('activo', true).maybeSingle()
-      if (data) { setIsSuperAdmin(true); await cargar() }
-      setLoading(false)
-    })
-  }, [cargar])
+  useEffect(() => { if (isAuth) cargar() }, [isAuth, cargar])
 
-  const handleLogin = async (e) => {
-    e.preventDefault(); setLoginError('')
-    const {data: sd, error} = await supabase.auth.signInWithPassword({email, password})
-    if (error) { setLoginError('Credenciales incorrectas'); return }
-    const user = sd?.user
-    if (!user) { setLoginError('Error al obtener usuario'); return }
-    const {data, error: saError} = await supabase.from('super_admins').select('email,activo').eq('email', user.email).eq('activo', true).maybeSingle()
-    if (saError) { setLoginError('Error: ' + saError.message); await supabase.auth.signOut(); return }
-    if (!data) { setLoginError('No tienes acceso de Super Admin'); await supabase.auth.signOut(); return }
-    setAuth(user); setIsSuperAdmin(true); await cargar()
-  }
+  const getConfig = empId => configs.find(c => c.empresa_id === empId)
+  const getPlanFIds = planId => planFeatures.filter(pf=>pf.plan_id===planId).map(pf=>pf.feature_id)
+  const hasOverride = (empId, featId) => overrides.some(o=>o.empresa_id===empId&&o.feature_id===featId)
 
-  const getConfig  = (eid) => configs.find(c => c.empresa_id === eid)
-  const getPlanFIds = (pid) => planFeatures.filter(pf => pf.plan_id === pid).map(pf => pf.feature_id)
-  const getOverride = (eid, fid) => overrides.find(o => o.empresa_id === eid && o.feature_id === fid)
-
-  const isFeatureActiva = (eid, fid) => {
-    const cfg = getConfig(eid)
-    const planFIds = cfg?.plan_id ? getPlanFIds(cfg.plan_id) : []
-    const ov = getOverride(eid, fid)
-    if (ov !== undefined) return ov.activa
-    return planFIds.includes(fid)
-  }
-
-  const toggleFeature = async (eid, fid) => {
-    setSaving(eid + fid)
-    const actual = isFeatureActiva(eid, fid)
-    const cfg = getConfig(eid)
-    const enPlan = cfg?.plan_id ? getPlanFIds(cfg.plan_id).includes(fid) : false
-    const ov = getOverride(eid, fid)
-    if (!ov) {
-      await supabase.from('empresas_features_override').insert({ empresa_id:eid, feature_id:fid, activa:!actual })
+  const cambiarPlan = async (empId, planId) => {
+    setSaving(empId+'-plan')
+    const cfg = getConfig(empId)
+    if (cfg) {
+      await supabase.from('config_empresa').update({ plan_id: planId }).eq('empresa_id', empId)
     } else {
-      if (ov.activa === enPlan) {
-        await supabase.from('empresas_features_override').delete().eq('id', ov.id)
-      } else {
-        await supabase.from('empresas_features_override').update({ activa:!ov.activa }).eq('id', ov.id)
-      }
+      await supabase.from('config_empresa').insert({ empresa_id: empId, plan_id: planId })
     }
-    await cargar(); setSaving(null)
+    await supabase.from('empresas').update({ plan: planId }).eq('id', empId)
+    setSaving(null); cargar()
   }
 
-  const toggleEmpresaActiva = async (eid, activa) => {
-    setSaving('toggle_'+eid)
-    await supabase.from('empresas_config').upsert({empresa_id:eid, activa:!activa},{onConflict:'empresa_id'})
-    await cargar(); setSaving(null)
-  }
-
-  const cambiarPlan = async (eid, planId) => {
-    setSaving('plan_'+eid)
-    await supabase.from('empresas_config').upsert({empresa_id:eid, plan_id:planId},{onConflict:'empresa_id'})
-    await supabase.from('empresas_features_override').delete().eq('empresa_id', eid)
-    await cargar(); setSaving(null)
-  }
-
-  const crearCliente = async () => {
-    if (!newNombre || !newEmail) return
-    setCreatingCliente(true)
-    const {data:emp} = await supabase.from('empresas').insert({nombre:newNombre, email:newEmail, ciudad:'España', pais:'España'}).select().single()
-    if (emp) {
-      await supabase.from('empresas_config').insert({empresa_id:emp.id, plan_id:newPlan, activa:true, max_empleados:50})
+  const toggleOverride = async (empId, featId) => {
+    setSaving(empId+'-'+featId)
+    if (hasOverride(empId, featId)) {
+      await supabase.from('empresa_feature_overrides').delete().eq('empresa_id', empId).eq('feature_id', featId)
+    } else {
+      await supabase.from('empresa_feature_overrides').insert({ empresa_id: empId, feature_id: featId })
     }
-    setShowNewCliente(false); setNewNombre(''); setNewEmail(''); setNewPlan('starter')
-    setCreatingCliente(false); await cargar()
+    setSaving(null); cargar()
   }
 
-  const getFeaturesByCategoria = () => {
-    const cats = {}
-    features.forEach(f => { if(!cats[f.categoria]) cats[f.categoria]=[]; cats[f.categoria].push(f) })
-    return cats
+  const crearEmpresa = async () => {
+    if (!newEmpForm.nombre || !newEmpForm.email) return
+    setSavingNew(true)
+    const { data: emp } = await supabase.from('empresas').insert({
+      nombre: newEmpForm.nombre, email: newEmpForm.email,
+      plan: newEmpForm.plan, max_empleados: +newEmpForm.max_empleados||10, activa: true,
+    }).select().single()
+    if (emp) await supabase.from('config_empresa').insert({ empresa_id: emp.id, plan_id: newEmpForm.plan })
+    setSavingNew(false); setNewEmpModal(false)
+    setNewEmpForm({ nombre:'', email:'', plan:'starter', max_empleados:'10' }); cargar()
   }
-
-  if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white text-sm">Cargando...</div>
-
-  if (!auth || !isSuperAdmin) return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="bg-slate-800 rounded-2xl p-8 w-full max-w-md border border-slate-700 shadow-2xl">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4"><Shield className="w-8 h-8 text-white"/></div>
-          <h1 className="text-2xl font-bold text-white">Super Admin · Tryvor</h1>
-          <p className="text-slate-400 mt-1">Panel de control de clientes</p>
-        </div>
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div><label className="block text-sm text-slate-400 mb-1">Email</label>
-            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required
-              className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 border border-slate-600 focus:border-indigo-500 outline-none"/></div>
-          <div><label className="block text-sm text-slate-400 mb-1">Contraseña</label>
-            <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required
-              className="w-full bg-slate-700 text-white rounded-lg px-4 py-3 border border-slate-600 focus:border-indigo-500 outline-none"/></div>
-          {loginError && <p className="text-red-400 text-sm bg-red-900/20 rounded-lg px-3 py-2">{loginError}</p>}
-          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition-colors">Acceder</button>
-        </form>
-      </div>
-    </div>
-  )
-
-  const cats = getFeaturesByCategoria()
-  const activosCount = configs.filter(c=>c.activa).length
-  
-  // Calcular MRR estimado (precio_mes * max_empleados * activos)
-  const mrr = configs.filter(c=>c.activa).reduce((sum,cfg) => {
-    const plan = planes.find(p=>p.id===cfg.plan_id)
-    if(!plan) return sum
-    return sum + (plan.precio_mes || 0) * (cfg.max_empleados || 10)
-  }, 0)
 
   const borrarCliente = (id, nombre) => setConfirmDelete({ id, nombre })
 
@@ -175,251 +98,283 @@ export default function SuperAdminPage() {
       await supabase.from('empleados').update({ estado: 'inactivo' }).eq('empresa_id', id)
       const { error } = await supabase.from('empresas').delete().eq('id', id)
       if (error) throw error
-      setConfirmDelete(null)
-      cargar()
+      setConfirmDelete(null); cargar()
     } catch (err) {
-      alert('Error al borrar: ' + err.message)
-      setConfirmDelete(null)
+      alert('Error: ' + err.message); setConfirmDelete(null)
     }
   }
 
+  const mrr = empresas.reduce((s, emp) => {
+    const cfg = getConfig(emp.id)
+    const plan = planes.find(p=>p.id===(cfg?.plan_id||emp.plan))
+    return s + (plan ? +plan.precio_mes * (emp.max_empleados||10) : 0)
+  }, 0)
+  const arr = mrr * 12
+
+  if (!isAuth) return (
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="bg-slate-800 rounded-2xl p-8 w-full max-w-sm shadow-2xl">
+        <div className="w-14 h-14 bg-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-5">
+          <Shield className="w-7 h-7 text-white"/>
+        </div>
+        <h1 className="text-white text-xl font-bold text-center mb-1">Super Admin</h1>
+        <p className="text-slate-400 text-sm text-center mb-6">Nexo HR · Tryvor</p>
+        <input type="password" value={pinInput} onChange={e=>setPinInput(e.target.value)}
+          onKeyDown={e=>{ if(e.key==='Enter'){ if(pinInput===PIN){setIsAuth(true)}else{setPinError(true);setTimeout(()=>setPinError(false),2000)} } }}
+          placeholder="Contraseña de acceso"
+          className={`w-full bg-slate-700 text-white rounded-xl px-4 py-3 border outline-none text-sm mb-3 ${pinError?'border-red-500':'border-slate-600 focus:border-indigo-500'}`}/>
+        {pinError && <p className="text-red-400 text-xs text-center mb-3">Contraseña incorrecta</p>}
+        <button onClick={()=>{ if(pinInput===PIN){setIsAuth(true)}else{setPinError(true);setTimeout(()=>setPinError(false),2000)} }}
+          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 font-bold text-sm">Acceder</button>
+      </div>
+    </div>
+  )
+
+  const tabs = [
+    { id:'clientes', label:'Clientes & Features' },
+    { id:'planes',   label:'Comparar planes' },
+    { id:'revenue',  label:'Ingresos' },
+  ]
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
+    <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+      <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center"><Shield className="w-5 h-5"/></div>
-          <div><h1 className="font-bold text-lg leading-none">Nexo HR · Super Admin</h1><p className="text-slate-400 text-xs mt-0.5">Panel Tryvor · {activosCount} clientes activos</p></div>
+          <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
+            <Shield className="w-5 h-5"/>
+          </div>
+          <div>
+            <h1 className="font-bold text-base leading-none">Super Admin</h1>
+            <p className="text-slate-400 text-xs mt-0.5">Nexo HR · Tryvor</p>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <button onClick={cargar} className="text-slate-400 hover:text-white"><RefreshCw className="w-4 h-4"/></button>
-          <span className="text-slate-500 text-sm hidden sm:block">{auth?.email}</span>
-          <button onClick={()=>supabase.auth.signOut().then(()=>{setAuth(null);setIsSuperAdmin(false)})} className="flex items-center gap-1.5 text-slate-400 hover:text-red-400 text-sm">
-            <LogOut className="w-4 h-4"/> Salir
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <p className="text-xs text-slate-400">MRR</p>
+            <p className="font-bold text-emerald-400">{mrr.toLocaleString('es-ES',{minimumFractionDigits:0})}€</p>
+          </div>
+          <button onClick={cargar} className="p-2 hover:bg-slate-700 rounded-lg">
+            <RefreshCw className={`w-4 h-4 ${loading?'animate-spin':''}`}/>
+          </button>
+          <button onClick={()=>setIsAuth(false)} className="p-2 hover:bg-slate-700 rounded-lg">
+            <LogOut className="w-4 h-4"/>
           </button>
         </div>
-      </header>
-
-      {/* KPIs con MRR */}
-      <div className="px-6 py-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          {label:'Clientes', val:empresas.length, color:'#6366f1', bg:'bg-indigo-900/20'},
-          {label:'Activos',  val:activosCount,     color:'#10b981', bg:'bg-emerald-900/20'},
-          {label:'MRR est.', val:'~'+mrr.toLocaleString('es-ES')+'€', color:'#f59e0b', bg:'bg-amber-900/20'},
-          {label:'Módulos',  val:features.length,  color:'#ec4899', bg:'bg-pink-900/20'},
-        ].map((s,i)=>(
-          <div key={i} className={`${s.bg} border border-slate-700 rounded-xl p-4`}>
-            <p className="text-2xl font-bold" style={{color:s.color}}>{s.val}</p>
-            <p className="text-slate-400 text-xs">{s.label}</p>
-          </div>
-        ))}
       </div>
 
       {/* Tabs */}
-      <div className="px-6 border-b border-slate-700 flex gap-1">
-        {[['clientes','Clientes & Features'],['planes','Comparar planes'],['revenue','Ingresos']].map(([id,lbl])=>(
-          <button key={id} onClick={()=>setActiveTab(id)}
-            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-px ${activeTab===id?'text-indigo-400 border-indigo-400':'text-slate-400 border-transparent hover:text-white'}`}>{lbl}</button>
+      <div className="bg-white border-b border-slate-200 px-6 flex gap-1">
+        {tabs.map(t => (
+          <button key={t.id} onClick={()=>setActiveTab(t.id)}
+            className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab===t.id?'border-indigo-600 text-indigo-600':'border-transparent text-slate-500 hover:text-slate-700'}`}>
+            {t.label}
+          </button>
         ))}
       </div>
 
-      <div className="px-6 py-4 pb-12">
+      <div className="p-6 max-w-7xl mx-auto">
 
-        {/* === TAB CLIENTES === */}
-        {activeTab==='clientes' && (
-          <div className="space-y-3">
-            <button onClick={()=>setShowNewCliente(true)}
-              className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl py-3 text-slate-400 hover:text-indigo-400 transition-colors text-sm font-medium">
-              <Plus className="w-4 h-4"/> Añadir nuevo cliente
-            </button>
-
-            {empresas.map(emp => {
-              const cfg = getConfig(emp.id)
-              const plan = planes.find(p=>p.id===cfg?.plan_id)
-              const PlanIcon = plan?PLAN_ICONS[plan.id]:Star
-              const planColor = plan?PLAN_COLORS[plan.id]:'#64748b'
-              const isOpen = expandedEmp === emp.id
-              const planFIds = plan?getPlanFIds(plan.id):[]
-              const ovs = overrides.filter(o=>o.empresa_id===emp.id)
-              const customCount = ovs.filter(o=>!planFIds.includes(o.feature_id)&&o.activa).length
-              const removedCount = ovs.filter(o=>planFIds.includes(o.feature_id)&&!o.activa).length
-              const mrr_emp = cfg?.activa ? ((plan?.precio_mes||0) * (cfg?.max_empleados||10)) : 0
-
-              return (
-                <div key={emp.id} className={`bg-slate-800 rounded-xl border overflow-hidden ${cfg?.activa!==false?'border-slate-700':'border-red-800/60'}`}>
-                  <div className="p-4 flex items-center gap-3 flex-wrap cursor-pointer hover:bg-slate-750 transition-colors"
-                    onClick={()=>setExpandedEmp(isOpen?null:emp.id)}>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0"
-                      style={{background:planColor+'20',color:planColor}}>
-                      {emp.nombre?.charAt(0)||'?'}
-                    </div>
-                    <div className="flex-1 min-w-[140px]">
-                      <p className="font-semibold text-white">{emp.nombre}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        {plan&&<span className="text-xs flex items-center gap-1 font-medium" style={{color:planColor}}>
-                          <PlanIcon className="w-3 h-3"/>{plan.nombre}
-                        </span>}
-                        {cfg?.activa && mrr_emp > 0 && <span className="text-xs text-emerald-400 font-medium">~{mrr_emp.toLocaleString('es-ES')}€/mes</span>}
-                        {customCount>0&&<span className="text-xs text-emerald-400">+{customCount} extra</span>}
-                        {removedCount>0&&<span className="text-xs text-rose-400">-{removedCount} quitados</span>}
-                      </div>
-                    </div>
-
-                    <select value={cfg?.plan_id||''} onChange={e=>{e.stopPropagation();cambiarPlan(emp.id,e.target.value)}}
-                      onClick={e=>e.stopPropagation()}
-                      className="bg-slate-700 text-white text-sm rounded-lg px-3 py-1.5 border border-slate-600 outline-none">
-                      <option value="">Sin plan</option>
-                      {planes.map(p=><option key={p.id} value={p.id}>{p.nombre} — {p.precio_mes}€/u/mes</option>)}
-                    </select>
-
-                    <button onClick={e=>{e.stopPropagation();toggleEmpresaActiva(emp.id,cfg?.activa)}}
-                      disabled={saving==='toggle_'+emp.id} className="flex items-center gap-1.5 flex-shrink-0">
-                      {cfg?.activa!==false
-                        ?<><ToggleRight className="w-7 h-7 text-emerald-400"/><span className="text-xs text-emerald-400 font-medium hidden sm:block">Activa</span></>
-                        :<><ToggleLeft className="w-7 h-7 text-red-400"/><span className="text-xs text-red-400 font-medium hidden sm:block">Suspendida</span></>
-                      }
-                    </button>
-
-                    <button onClick={(e)=>{e.stopPropagation();borrarCliente(emp.id,emp.nombre)}} title="Borrar cliente" className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors mr-1 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>{isOpen?<ChevronUp className="w-4 h-4 text-slate-400"/>:<ChevronDown className="w-4 h-4 text-slate-400"/>}
-                  </div>
-
-                  {isOpen && (
-                    <div className="border-t border-slate-700 p-4">
-                      <p className="text-xs text-slate-400 mb-3 font-medium uppercase tracking-wider">
-                        Módulos — clic para activar/desactivar individualmente
-                      </p>
-                      <div className="space-y-4">
-                        {Object.entries(cats).map(([cat,feats])=>(
-                          <div key={cat}>
-                            <p className="text-xs font-semibold text-slate-400 mb-2">{CAT_LABELS[cat]||cat}</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                              {feats.map(f=>{
-                                const activa = isFeatureActiva(emp.id, f.id)
-                                const enPlan = planFIds.includes(f.id)
-                                const ov = getOverride(emp.id, f.id)
-                                const isCustom = ov && (ov.activa !== enPlan)
-                                return (
-                                  <button key={f.id}
-                                    onClick={()=>toggleFeature(emp.id, f.id)}
-                                    disabled={saving===emp.id+f.id}
-                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-all text-left ${activa
-                                      ?'border-emerald-700/50 bg-emerald-900/20 hover:bg-emerald-900/30'
-                                      :'border-slate-700 bg-slate-800 hover:bg-slate-700 opacity-60 hover:opacity-80'
-                                    }`}>
-                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${activa?'bg-emerald-500':'bg-slate-600'}`}>
-                                      {activa?<CheckCircle className="w-3 h-3 text-white"/>:<X className="w-3 h-3 text-slate-400"/>}
-                                    </div>
-                                    <span className={`text-xs flex-1 ${activa?'text-slate-200':'text-slate-500'}`}>{f.nombre}</span>
-                                    {isCustom&&<span className="text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0"
-                                      style={{background:activa?'#10b98120':'#ef444420',color:activa?'#10b981':'#ef4444'}}>
-                                      {activa?'+ extra':'- quitado'}
-                                    </span>}
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* === TAB PLANES === */}
-        {activeTab==='planes' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
-            {planes.map(plan=>{
-              const PlanIcon=PLAN_ICONS[plan.id]||Star
-              const planFIds=getPlanFIds(plan.id)
-              const color=PLAN_COLORS[plan.id]||'#6366f1'
-              const clientesEnPlan = configs.filter(c=>c.plan_id===plan.id&&c.activa).length
-              return(
-                <div key={plan.id} className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                  <div className="p-5 border-b border-slate-700" style={{background:color+'12'}}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <PlanIcon className="w-5 h-5" style={{color}}/>
-                      <h3 className="font-bold text-lg" style={{color}}>{plan.nombre}</h3>
-                      <span className="ml-auto text-xs text-slate-400">{clientesEnPlan} clientes</span>
-                    </div>
-                    <p className="text-2xl font-black">{plan.precio_mes}€<span className="text-sm font-normal text-slate-400">/usuario/mes</span></p>
-                    <p className="text-slate-400 text-xs mt-1">{plan.descripcion}</p>
-                    <div className="text-xs text-slate-500 mt-2">{planFIds.length} módulos incluidos</div>
-                  </div>
-                  <div className="p-4 max-h-[500px] overflow-y-auto space-y-0.5">
-                    {Object.entries(cats).map(([cat,feats])=>(
-                      <div key={cat}>
-                        <p className="text-slate-500 text-[10px] uppercase tracking-wider mt-3 mb-1">{CAT_LABELS[cat]||cat}</p>
-                        {feats.map(f=>(
-                          <div key={f.id} className="flex items-center gap-2 py-0.5">
-                            {planFIds.includes(f.id)
-                              ?<CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0"/>
-                              :<XCircle className="w-3.5 h-3.5 text-slate-600 flex-shrink-0"/>
-                            }
-                            <span className={`text-xs ${planFIds.includes(f.id)?'text-slate-200':'text-slate-600'}`}>{f.nombre}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* === TAB REVENUE === */}
-        {activeTab==='revenue' && (
-          <div className="mt-2 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-                <p className="text-slate-400 text-sm">MRR estimado</p>
-                <p className="text-3xl font-black text-emerald-400 mt-1">~{mrr.toLocaleString('es-ES')}€</p>
-                <p className="text-slate-500 text-xs mt-1">clientes activos × precio × empleados</p>
+        {/* TAB CLIENTES */}
+        {activeTab === 'clientes' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800">Clientes activos</h2>
+                <p className="text-slate-400 text-sm">{empresas.length} empresa{empresas.length!==1?'s':''} registradas</p>
               </div>
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-                <p className="text-slate-400 text-sm">ARR estimado</p>
-                <p className="text-3xl font-black text-indigo-400 mt-1">~{(mrr*12).toLocaleString('es-ES')}€</p>
-                <p className="text-slate-500 text-xs mt-1">proyección anual</p>
-              </div>
-              <div className="bg-slate-800 border border-slate-700 rounded-xl p-5">
-                <p className="text-slate-400 text-sm">Ticket medio</p>
-                <p className="text-3xl font-black text-amber-400 mt-1">{activosCount > 0 ? Math.round(mrr/activosCount).toLocaleString('es-ES') : 0}€</p>
-                <p className="text-slate-500 text-xs mt-1">por cliente/mes</p>
-              </div>
+              <button onClick={()=>setNewEmpModal(true)}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm">
+                <Plus className="w-4 h-4"/> Nueva empresa
+              </button>
             </div>
-            
-            <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-slate-700">
-                <h3 className="font-semibold text-sm flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-400"/> Desglose por cliente</h3>
-              </div>
-              <div className="divide-y divide-slate-700/50">
+            {loading ? (
+              <div className="text-slate-400 text-sm animate-pulse py-8 text-center">Cargando...</div>
+            ) : (
+              <div className="space-y-3">
                 {empresas.map(emp => {
                   const cfg = getConfig(emp.id)
-                  const plan = planes.find(p=>p.id===cfg?.plan_id)
-                  const rev = cfg?.activa ? ((plan?.precio_mes||0) * (cfg?.max_empleados||10)) : 0
-                  const pct = mrr > 0 ? (rev/mrr)*100 : 0
-                  return(
+                  const plan = planes.find(p=>p.id===(cfg?.plan_id||emp.plan))
+                  const PlanIcon = plan ? (PLAN_ICONS[plan.id]||Star) : Star
+                  const planColor = plan ? (PLAN_COLORS[plan.id]||'#64748b') : '#64748b'
+                  const isOpen = expandedEmp === emp.id
+                  const planFIds = plan ? getPlanFIds(plan.id) : []
+                  const ovs = overrides.filter(o=>o.empresa_id===emp.id)
+                  const customCount = ovs.filter(o=>!planFIds.includes(o.feature_id)).length
+                  return (
+                    <div key={emp.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="px-5 py-4 flex items-center gap-3 flex-wrap cursor-pointer hover:bg-slate-50 transition-colors"
+                        onClick={()=>setExpandedEmp(isOpen?null:emp.id)}>
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0 text-white"
+                          style={{background: planColor}}>
+                          {emp.nombre?.charAt(0)||'?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 truncate">{emp.nombre}</p>
+                          <p className="text-slate-400 text-xs truncate">{emp.email}</p>
+                        </div>
+                        <select value={cfg?.plan_id||emp.plan||'starter'}
+                          onClick={e=>e.stopPropagation()}
+                          onChange={e=>cambiarPlan(emp.id, e.target.value)}
+                          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 bg-white flex-shrink-0"
+                          style={{color: planColor}}>
+                          {planes.map(p=>(
+                            <option key={p.id} value={p.id}>{p.nombre} — {p.precio_mes}€/u</option>
+                          ))}
+                        </select>
+                        <div className="flex items-center gap-1 text-slate-400 text-xs flex-shrink-0">
+                          <Users className="w-3.5 h-3.5"/>
+                          <span>{emp.max_empleados||'?'}</span>
+                        </div>
+                        {customCount > 0 && (
+                          <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
+                            +{customCount} extra
+                          </span>
+                        )}
+                        {/* BOTÓN BORRAR */}
+                        <button onClick={(e)=>{ e.stopPropagation(); borrarCliente(emp.id, emp.nombre) }}
+                          title="Borrar cliente"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
+                          <Trash2 className="w-4 h-4"/>
+                        </button>
+                        {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0"/> : <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0"/>}
+                      </div>
+                      {isOpen && (
+                        <div className="border-t border-slate-100 px-5 py-4 bg-slate-50/50">
+                          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Features activas</p>
+                          <div className="space-y-3">
+                            {Object.keys(CAT_LABELS).map(cat => {
+                              const catFeats = features.filter(f=>f.categoria===cat)
+                              if (!catFeats.length) return null
+                              return (
+                                <div key={cat}>
+                                  <p className="text-xs text-slate-400 mb-1.5">{CAT_LABELS[cat]}</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {catFeats.map(f => {
+                                      const inPlan = planFIds.includes(f.id)
+                                      const inOverride = hasOverride(emp.id, f.id)
+                                      const isActive = inPlan || inOverride
+                                      const isSaving = saving === emp.id+'-'+f.id
+                                      return (
+                                        <button key={f.id}
+                                          onClick={()=>toggleOverride(emp.id, f.id)}
+                                          disabled={isSaving}
+                                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${isActive ? inPlan ? 'bg-indigo-50 text-indigo-700 border-indigo-200 opacity-80' : 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'} ${isSaving?'opacity-50':''}`}>
+                                          {isActive ? <CheckCircle className="w-3 h-3"/> : <XCircle className="w-3 h-3"/>}
+                                          {f.nombre}
+                                          {inPlan && !inOverride && <span className="text-[9px] text-indigo-400 ml-0.5">plan</span>}
+                                        </button>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB PLANES */}
+        {activeTab === 'planes' && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-bold text-slate-800">Comparar planes</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider w-48">Feature</th>
+                    {planes.map(p => {
+                      const Icon = PLAN_ICONS[p.id]||Star
+                      return (
+                        <th key={p.id} className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider" style={{color:PLAN_COLORS[p.id]||'#64748b'}}>
+                          <div className="flex flex-col items-center gap-1">
+                            <Icon className="w-4 h-4"/>
+                            <span>{p.nombre}</span>
+                            <span className="text-slate-400 font-normal normal-case">{p.precio_mes}€/u/mes</span>
+                          </div>
+                        </th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {Object.keys(CAT_LABELS).map(cat => {
+                    const catFeats = features.filter(f=>f.categoria===cat)
+                    if (!catFeats.length) return null
+                    return [
+                      <tr key={`cat-${cat}`} className="bg-slate-50/80">
+                        <td colSpan={planes.length+1} className="px-5 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                          {CAT_LABELS[cat]}
+                        </td>
+                      </tr>,
+                      ...catFeats.map(f => (
+                        <tr key={f.id} className="hover:bg-slate-50/50">
+                          <td className="px-5 py-2 text-sm text-slate-600">{f.nombre}</td>
+                          {planes.map(p => {
+                            const has = planFeatures.some(pf=>pf.plan_id===p.id&&pf.feature_id===f.id)
+                            return (
+                              <td key={p.id} className="px-4 py-2 text-center">
+                                {has ? <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto"/> : <span className="text-slate-200 text-lg">—</span>}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))
+                    ]
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB REVENUE */}
+        {activeTab === 'revenue' && (
+          <div className="space-y-5">
+            <h2 className="text-lg font-bold text-slate-800">Ingresos recurrentes</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { label:'MRR', val: mrr.toLocaleString('es-ES',{minimumFractionDigits:2})+'€', icon:TrendingUp, color:'text-emerald-600', bg:'bg-emerald-50' },
+                { label:'ARR', val: arr.toLocaleString('es-ES',{minimumFractionDigits:0})+'€', icon:TrendingUp, color:'text-indigo-600', bg:'bg-indigo-50' },
+                { label:'Ticket medio', val: empresas.length ? (mrr/empresas.length).toLocaleString('es-ES',{minimumFractionDigits:0})+'€' : '—', icon:Users, color:'text-amber-600', bg:'bg-amber-50' },
+              ].map((k,i) => {
+                const Icon = k.icon
+                return (
+                  <div key={i} className={`${k.bg} rounded-2xl border border-slate-200 p-5`}>
+                    <Icon className={`w-5 h-5 ${k.color} mb-3`}/>
+                    <p className={`text-2xl font-black ${k.color}`}>{k.val}</p>
+                    <p className="text-slate-500 text-sm mt-1">{k.label}</p>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-100">
+                <p className="font-semibold text-slate-700">Desglose por empresa</p>
+              </div>
+              <div className="divide-y divide-slate-50">
+                {empresas.map(emp => {
+                  const cfg = getConfig(emp.id)
+                  const plan = planes.find(p=>p.id===(cfg?.plan_id||emp.plan))
+                  const revenue = plan ? +plan.precio_mes * (emp.max_empleados||10) : 0
+                  return (
                     <div key={emp.id} className="flex items-center gap-4 px-5 py-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0"
-                        style={{background:(plan?PLAN_COLORS[plan.id]:'#64748b')+'20',color:plan?PLAN_COLORS[plan.id]:'#64748b'}}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                        style={{background: plan ? PLAN_COLORS[plan.id]||'#64748b' : '#64748b'}}>
                         {emp.nombre?.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{emp.nombre}</p>
-                        <p className="text-xs text-slate-400">{plan?.nombre||'Sin plan'} · {cfg?.max_empleados||0} empleados</p>
-                        <div className="mt-1 bg-slate-700 rounded-full h-1.5 w-full">
-                          <div className="h-1.5 rounded-full bg-emerald-500" style={{width:`${pct}%`}}/>
-                        </div>
+                        <p className="text-sm font-medium text-slate-700 truncate">{emp.nombre}</p>
+                        <p className="text-xs text-slate-400">{plan?.nombre||'Sin plan'} · {emp.max_empleados||10} usuarios</p>
                       </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className={`text-sm font-bold ${cfg?.activa?'text-emerald-400':'text-slate-500'}`}>{rev > 0 ? '~'+rev.toLocaleString('es-ES')+'€' : '—'}</p>
-                        <p className="text-xs text-slate-500">{cfg?.activa?'activo':'suspendido'}</p>
-                      </div>
+                      <p className="text-sm font-bold text-emerald-600 flex-shrink-0">{revenue.toLocaleString('es-ES',{minimumFractionDigits:2})}€/mes</p>
                     </div>
                   )
                 })}
@@ -429,70 +384,80 @@ export default function SuperAdminPage() {
         )}
       </div>
 
-      {/* Modal nuevo cliente */}
-      {showNewCliente&&(
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-800 rounded-2xl p-6 w-full max-w-md border border-slate-700 shadow-2xl">
+      {/* Modal nueva empresa */}
+      {newEmpModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="font-bold text-lg text-white">Nuevo cliente</h3>
-              <button onClick={()=>setShowNewCliente(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5"/></button>
+              <h3 className="font-bold text-slate-800 text-lg">Nueva empresa</h3>
+              <button onClick={()=>setNewEmpModal(false)} className="p-1.5 hover:bg-slate-100 rounded-lg">
+                <X className="w-4 h-4 text-slate-400"/>
+              </button>
             </div>
-            <div className="space-y-4">
-              <div><label className="block text-sm text-slate-400 mb-1.5">Nombre de la empresa</label>
-                <input value={newNombre} onChange={e=>setNewNombre(e.target.value)} placeholder="Empresa XYZ SL"
-                  className="w-full bg-slate-700 text-white rounded-lg px-4 py-2.5 border border-slate-600 outline-none focus:border-indigo-500"/></div>
-              <div><label className="block text-sm text-slate-400 mb-1.5">Email de contacto</label>
-                <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="admin@empresa.com" type="email"
-                  className="w-full bg-slate-700 text-white rounded-lg px-4 py-2.5 border border-slate-600 outline-none focus:border-indigo-500"/></div>
-              <div><label className="block text-sm text-slate-400 mb-1.5">Plan inicial</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {planes.map(p=>{
-                    const PI=PLAN_ICONS[p.id]||Star; const col=PLAN_COLORS[p.id]
-                    return(<button key={p.id} onClick={()=>setNewPlan(p.id)}
-                      className={`py-2.5 px-3 rounded-lg border-2 text-xs font-medium transition-all ${newPlan===p.id?'text-white':'border-slate-600 text-slate-400'}`}
-                      style={newPlan===p.id?{borderColor:col,background:col+'20',color:col}:{}}> 
-                      <PI className="w-3.5 h-3.5 mx-auto mb-1"/>{p.nombre}<br/><span className="text-[10px] opacity-70">{p.precio_mes}€/u</span></button>)
-                  })}
+            <div className="space-y-3">
+              {[
+                { k:'nombre', label:'Nombre empresa', ph:'ACME Corp' },
+                { k:'email',  label:'Email contacto', ph:'admin@acme.com' },
+              ].map(f=>(
+                <div key={f.k}>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{f.label}</label>
+                  <input value={newEmpForm[f.k]} onChange={e=>setNewEmpForm(p=>({...p,[f.k]:e.target.value}))}
+                    placeholder={f.ph}
+                    className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
                 </div>
+              ))}
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Plan inicial</label>
+                <select value={newEmpForm.plan} onChange={e=>setNewEmpForm(p=>({...p,plan:e.target.value}))}
+                  className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400">
+                  {planes.map(p=><option key={p.id} value={p.id}>{p.nombre} — {p.precio_mes}€/usuario/mes</option>)}
+                </select>
               </div>
-              <div className="flex gap-2 pt-1">
-                <button onClick={()=>setShowNewCliente(false)} className="flex-1 py-2.5 border border-slate-600 rounded-lg text-sm text-slate-400 hover:bg-slate-700">Cancelar</button>
-                <button onClick={crearCliente} disabled={creatingCliente||!newNombre||!newEmail}
-                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors">
-                  {creatingCliente?'Creando...':'Crear cliente'}
-                </button>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Nº usuarios</label>
+                <input type="number" value={newEmpForm.max_empleados} onChange={e=>setNewEmpForm(p=>({...p,max_empleados:e.target.value}))}
+                  className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
               </div>
+            </div>
+            <div className="flex gap-3 mt-5">
+              <button onClick={()=>setNewEmpModal(false)} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-500 hover:bg-slate-50">Cancelar</button>
+              <button onClick={crearEmpresa} disabled={savingNew}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                <Plus className="w-4 h-4"/> {savingNew?'Creando...':'Crear empresa'}
+              </button>
             </div>
           </div>
         </div>
       )}
-    </div>
 
-  )
-
+      {/* Modal confirmación BORRAR */}
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
-              <AlertTriangle className="w-6 h-6 text-white"/>
+              <AlertTriangle className="w-6 h-6 text-white flex-shrink-0"/>
               <h3 className="text-white font-bold text-lg">Borrar cliente</h3>
             </div>
             <div className="p-6">
-              <p className="text-slate-500 dark:text-slate-400 text-sm mb-3">Vas a borrar permanentemente:</p>
-              <div className="bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 mb-4">
-                <p className="font-bold text-slate-800 dark:text-white">{confirmDelete.nombre}</p>
+              <p className="text-slate-500 text-sm mb-3">Vas a borrar permanentemente:</p>
+              <div className="bg-slate-100 rounded-xl px-4 py-3 mb-4">
+                <p className="font-bold text-slate-800">{confirmDelete.nombre}</p>
                 <p className="text-xs text-slate-400 mt-0.5">Se eliminará la empresa y su configuración. Los empleados quedarán inactivos.</p>
               </div>
               <p className="text-xs text-red-500 font-semibold mb-5">⚠️ Esta acción no se puede deshacer.</p>
               <div className="flex gap-3">
-                <button onClick={()=>setConfirmDelete(null)} className="flex-1 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
-                  Cancelar
-                </button>
-                <button onClick={confirmarBorrado} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                <button onClick={()=>setConfirmDelete(null)}
+                  className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+                <button onClick={confirmarBorrado}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
                   <Trash2 className="w-4 h-4"/> Borrar
                 </button>
               </div>
             </div>
           </div>
         </div>
-      )}}
+      )}
+
+    </div>
+  )
+}

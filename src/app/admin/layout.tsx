@@ -10,7 +10,7 @@ import {
   Briefcase, ClipboardList, Star, Gift, LogOut,
   ChevronDown, Sun, Moon, Search, Menu, X, Wifi, Monitor,
   AlertCircle, Receipt, Shield, Building2,
-  Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Target,
+  Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Target, Sparkles,
   ChevronRight, Settings, CalendarRange, AlertTriangle, Mail, Heart
 , UserPlus } from 'lucide-react'
 
@@ -70,7 +70,7 @@ const GROUPS: NavGroup[] = [
   ]},
 ]
 
-function Sidebar({ onClose, pendientes }: { onClose?:()=>void; pendientes:number }) {
+function Sidebar({ onClose, pendientes, featuresActivas }: { onClose?:()=>void; pendientes:number; featuresActivas:Set<string> }) {
   const pathname = usePathname()
   const router   = useRouter()
   const [dark, setDark]     = useState(false)
@@ -133,15 +133,18 @@ function Sidebar({ onClose, pendientes }: { onClose?:()=>void; pendientes:number
               </button>
               {isOpen&&(
                 <div className="ml-3 pl-3 border-l-2 border-slate-100 dark:border-slate-700 mt-0.5 mb-1 space-y-0.5">
-                  {group.items.filter((item: any) => !item.feature || typeof featuresActivas === "undefined" || featuresActivas.size === 0 || featuresActivas.has(item.feature)).map(item=>{
+                  {group.items.map(item=>{
                     const active=isActive(item)
                     const Icon=item.icon
+                    const locked = item.feature && featuresActivas.size > 0 && !featuresActivas.has(item.feature)
                     return(
                       <button key={item.href} onClick={()=>{router.push(item.href);onClose?.()}}
-                        className={"nav-item w-full "+(active?'nav-item-active':'nav-item-inactive')}>
-                        <Icon className="w-3.5 h-3.5 flex-shrink-0"/>
-                        <span className="flex-1 text-left text-[13px]">{item.label}</span>
-                        {item.badge&&pendientes>0&&<span className="ml-auto text-[10px] font-bold bg-red-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{pendientes}</span>}
+                        title={locked ? 'Función no disponible en tu plan actual' : undefined}
+                        className={`nav-item w-full ${active?'nav-item-active':'nav-item-inactive'} ${locked?'opacity-55':''}`}>
+                        <Icon className="w-3.5 h-3.5 flex-shrink-0" style={locked?{color:'#cbd5e1'}:undefined}/>
+                        <span className={`flex-1 text-left text-[13px] ${locked?'text-slate-400':''}`}>{item.label}</span>
+                        {item.badge&&pendientes>0&&!locked&&<span className="ml-auto text-[10px] font-bold bg-red-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{pendientes}</span>}
+                        {locked&&<Lock className="w-3 h-3 text-slate-300 flex-shrink-0 ml-auto"/>}
                       </button>
                     )
                   })}
@@ -176,8 +179,20 @@ export default function AdminLayout({children}:{children:React.ReactNode}){
   useEffect(()=>{
     supabase.auth.getUser().then(async({data:{user}})=>{
       if(!user){router.push('/');return}
-      const{data:emp}=await supabase.from('empleados').select('rol').eq('user_id',user.id).single()
+      const{data:emp}=await supabase.from('empleados').select('rol,empresa_id').eq('user_id',user.id).single()
       if(!emp||!['owner','admin','manager'].includes(emp.rol)){router.push('/empleado');return}
+      if(emp.empresa_id){
+        // Cargar features del plan
+        const{data:empresa}=await supabase.from('empresas').select('plan').eq('id',emp.empresa_id).single()
+        const plan=empresa?.plan||'starter'
+        const{data:pfs}=await supabase.from('plan_features').select('feature_id').eq('plan_id',plan)
+        // Cargar overrides activos
+        const{data:ovs}=await supabase.from('empresas_features_override').select('feature_id,activa').eq('empresa_id',emp.empresa_id)
+        const set=new Set<string>((pfs||[]).map((pf:any)=>pf.feature_id))
+        // Aplicar overrides: si activa=true añadir, si activa=false quitar
+        ;(ovs||[]).forEach((ov:any)=>{if(ov.activa===false)set.delete(ov.feature_id);else set.add(ov.feature_id)})
+        setFeaturesActivas(set)
+      }
     })
     supabase.from('solicitudes').select('id',{count:'exact',head:true}).eq('estado','pendiente').then(({count})=>setPendientes(count||0))
     const ch=supabase.channel('sol-count').on('postgres_changes',{event:'*',schema:'public',table:'solicitudes'},()=>{
@@ -192,12 +207,12 @@ export default function AdminLayout({children}:{children:React.ReactNode}){
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900">
       <CommandPalette/>
       <aside className="hidden lg:flex w-56 flex-shrink-0 flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-        <Sidebar pendientes={pendientes}/>
+        <Sidebar pendientes={pendientes} featuresActivas={featuresActivas}/>
       </aside>
       {mobileOpen&&(
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={()=>setMobileOpen(false)}/>
-          <aside className="absolute left-0 top-0 bottom-0 w-64 shadow-2xl"><Sidebar onClose={()=>setMobileOpen(false)} pendientes={pendientes}/></aside>
+          <aside className="absolute left-0 top-0 bottom-0 w-64 shadow-2xl"><Sidebar onClose={()=>setMobileOpen(false)} pendientes={pendientes} featuresActivas={featuresActivas}/></aside>
         </div>
       )}
       <div className="flex-1 flex flex-col overflow-hidden">

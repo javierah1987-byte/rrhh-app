@@ -89,12 +89,23 @@ export default function SuperAdminPage() {
   const crearEmpresa = async () => {
     if (!newEmpForm.nombre||!newEmpForm.email) return
     setSavingNew(true)
-    const payload = { nombre:newEmpForm.nombre, email:newEmpForm.email, cif:newEmpForm.cif||null, telefono:newEmpForm.telefono||null, direccion:newEmpForm.direccion||null, ciudad:newEmpForm.ciudad||null, codigo_postal:newEmpForm.codigo_postal||null, pais:newEmpForm.pais||'España', web:newEmpForm.web||null, sector:newEmpForm.sector||null, plan:newEmpForm.plan, max_empleados:+newEmpForm.max_empleados||10, activa:true }
-    if (newEmpForm.grupo_id) payload.grupo_id = newEmpForm.grupo_id
-    const { data: emp, error } = await supabase.from('empresas').insert(payload).select().single()
+    // Usar edge function con service role para evitar problemas de RLS
+    const res = await fetch(SURL+'/functions/v1/create-empresa', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-superadmin-key':'nexohr-superadmin-2024'},
+      body: JSON.stringify({
+        nombre:newEmpForm.nombre, email:newEmpForm.email, cif:newEmpForm.cif||null,
+        telefono:newEmpForm.telefono||null, direccion:newEmpForm.direccion||null,
+        ciudad:newEmpForm.ciudad||null, codigo_postal:newEmpForm.codigo_postal||null,
+        pais:newEmpForm.pais||'España', web:newEmpForm.web||null, sector:newEmpForm.sector||null,
+        plan:newEmpForm.plan, max_empleados:+newEmpForm.max_empleados||10, activa:true,
+        grupo_id:newEmpForm.grupo_id||null
+      })
+    })
+    const data = await res.json()
     setSavingNew(false)
-    if (error) { alert('Error: '+error.message); return }
-    window._newEmpId = emp?.id
+    if (!res.ok) { alert('Error creando empresa: '+(data.error||'Error')); return }
+    window._newEmpId = data.empresa_id
     setNewEmpPaso(2)
   }
 
@@ -111,7 +122,16 @@ export default function SuperAdminPage() {
     })
     const data = await res.json()
     setSavingNew(false)
-    if (!res.ok) { alert('Error: '+(data.error||'Error')); return }
+    if (!res.ok) {
+      const msg = data.error || 'Error desconocido'
+      if (msg.toLowerCase().includes('already') || msg.includes('422') || msg.includes('exists')) {
+        alert('⚠️ Este email ya tiene una cuenta en Nexo HR. Usa un email diferente o contacta con soporte.')
+      } else {
+        alert('Error creando usuario: ' + msg)
+      }
+      setSavingNew(false)
+      return
+    }
     setNewEmpResult({ empresa:newEmpForm.nombre, adminEmail:adminForm.email, adminPass:useInvite?null:adminForm.password, wasInvite:useInvite })
     setNewEmpPaso(3); cargar()
   }

@@ -47,7 +47,7 @@ export default function SuperAdminPage() {
 
   const [newEmpModal, setNewEmpModal] = useState(false)
   const [newGrupoModal, setNewGrupoModal] = useState(false)
-  const [newEmpForm, setNewEmpForm]   = useState({ nombre:'', email:'', plan:'starter', max_empleados:'10', grupo_id:'' })
+  const [newEmpForm, setNewEmpForm]   = useState({ nombre:'', email:'', plan:'starter', max_empleados:'10', grupo_id:'', cif:'', telefono:'', direccion:'', ciudad:'', codigo_postal:'', pais:'España', web:'' })
   const [newEmpPaso, setNewEmpPaso]     = useState(1) // 1=empresa, 2=admin, 3=ok
   const [newEmpResult, setNewEmpResult] = useState(null) // {empresa, adminEmail, adminPass}
   const [adminForm, setAdminForm]       = useState({ nombre:'', email:'', password:'' })
@@ -62,8 +62,8 @@ export default function SuperAdminPage() {
       supabase.from('planes').select('*').order('precio_mes'),
       supabase.from('features').select('*').order('categoria').order('nombre'),
       supabase.from('plan_features').select('*'),
-      supabase.from('config_empresa').select('*'),
-      supabase.from('empresa_feature_overrides').select('*'),
+      supabase.from('empresas_config').select('*'),
+      supabase.from('empresas_features_override').select('*'),
     ])
     setEmpresas(emps||[]); setGrupos(grps||[]); setPlanes(pls||[])
     setFeatures(feats||[]); setPlanFeatures(pfs||[]); setConfigs(cfgs||[]); setOverrides(ovs||[])
@@ -75,32 +75,33 @@ export default function SuperAdminPage() {
   const getConfig = empId => configs.find(c => c.empresa_id === empId)
   const getPlanId = emp => { const cfg = getConfig(emp.id); return cfg?.plan_id || emp.plan }
   const getPlanFIds = planId => planFeatures.filter(pf=>pf.plan_id===planId).map(pf=>pf.feature_id)
-  const hasOverride = (empId, featId) => overrides.some(o=>o.empresa_id===empId&&o.feature_id===featId)
+  const hasOverride = (empId, featId) => overrides.some(o=>o.empresa_id===empId&&o.feature_id===featId&&o.activa!==false)
   const getMRREmp = emp => { const plan = planes.find(p=>p.id===getPlanId(emp)); return plan ? +plan.precio_mes*(emp.max_empleados||10):0 }
 
   const cambiarPlan = async (empId, planId) => {
     setSaving(empId+'-plan')
+    const { error } = await supabase.from('empresas').update({ plan: planId }).eq('id', empId)
+    if (error) { alert('Error: ' + error.message); setSaving(null); return }
     const cfg = getConfig(empId)
-    if (cfg) await supabase.from('config_empresa').update({plan_id:planId}).eq('empresa_id',empId)
-    else await supabase.from('config_empresa').insert({empresa_id:empId,plan_id:planId})
-    await supabase.from('empresas').update({plan:planId}).eq('id',empId)
+    if (cfg) await supabase.from('empresas_config').update({ plan_id: planId }).eq('empresa_id', empId)
+    else await supabase.from('empresas_config').insert({ empresa_id: empId, plan_id: planId, activa: true })
     setSaving(null); cargar()
   }
 
   const toggleOverride = async (empId, featId) => {
     setSaving(empId+'-'+featId)
-    if (hasOverride(empId,featId)) await supabase.from('empresa_feature_overrides').delete().eq('empresa_id',empId).eq('feature_id',featId)
-    else await supabase.from('empresa_feature_overrides').insert({empresa_id:empId,feature_id:featId})
+    if (hasOverride(empId,featId)) await supabase.from('empresas_features_override').delete().eq('empresa_id',empId).eq('feature_id',featId)
+    else await supabase.from('empresas_features_override').insert({empresa_id:empId, feature_id:featId, activa:true})
     setSaving(null); cargar()
   }
 
   const crearEmpresa = async () => {
     if (!newEmpForm.nombre||!newEmpForm.email) return
     setSavingNew(true)
-    const payload = { nombre:newEmpForm.nombre, email:newEmpForm.email, plan:newEmpForm.plan, max_empleados:+newEmpForm.max_empleados||10, activa:true }
+    const payload = { nombre:newEmpForm.nombre, email:newEmpForm.email, plan:newEmpForm.plan, max_empleados:+newEmpForm.max_empleados||10, activa:true, cif:newEmpForm.cif||null, telefono:newEmpForm.telefono||null, direccion:newEmpForm.direccion||null, ciudad:newEmpForm.ciudad||null, codigo_postal:newEmpForm.codigo_postal||null, pais:newEmpForm.pais||'España', web:newEmpForm.web||null }
     if (newEmpForm.grupo_id) payload.grupo_id = newEmpForm.grupo_id
     const { data: emp } = await supabase.from('empresas').insert(payload).select().single()
-    if (emp) await supabase.from('config_empresa').insert({empresa_id:emp.id,plan_id:newEmpForm.plan})
+    if (emp) await supabase.from('empresas_config').insert({empresa_id:emp.id,plan_id:newEmpForm.plan})
     setSavingNew(false)
     // Pasar al paso 2: crear usuario admin
     window._newEmpId = emp?.id
@@ -139,7 +140,7 @@ export default function SuperAdminPage() {
     setNewEmpModal(false)
     setNewEmpPaso(1)
     setNewEmpResult(null)
-    setNewEmpForm({nombre:'',email:'',plan:'starter',max_empleados:'10',grupo_id:''})
+    setNewEmpForm({nombre:'',email:'',plan:'starter',max_empleados:'10',grupo_id:'',cif:'',telefono:'',direccion:'',ciudad:'',codigo_postal:'',pais:'España',web:''})
     setAdminForm({nombre:'',email:'',password:''})
     window._newEmpId = null
   }
@@ -176,8 +177,8 @@ export default function SuperAdminPage() {
     if (!confirmDelete) return
     const id = confirmDelete.id
     try {
-      await supabase.from('empresa_feature_overrides').delete().eq('empresa_id',id)
-      await supabase.from('config_empresa').delete().eq('empresa_id',id)
+      await supabase.from('empresas_features_override').delete().eq('empresa_id',id)
+      await supabase.from('empresas_config').delete().eq('empresa_id',id)
       await supabase.from('empleados').update({estado:'inactivo'}).eq('empresa_id',id)
       const { error } = await supabase.from('empresas').delete().eq('id',id)
       if (error) throw error
@@ -637,6 +638,45 @@ export default function SuperAdminPage() {
                       <label className="block text-xs font-medium text-slate-500 mb-1">Nº usuarios</label>
                       <input type="number" value={newEmpForm.max_empleados} onChange={e=>setNewEmpForm(p=>({...p,max_empleados:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
                     </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">CIF / NIF</label>
+                      <input value={newEmpForm.cif} onChange={e=>setNewEmpForm(p=>({...p,cif:e.target.value}))} placeholder="B12345678"
+                        className="w-full bg-slate-50 rounded-xl px-3 py-2 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Teléfono</label>
+                      <input value={newEmpForm.telefono} onChange={e=>setNewEmpForm(p=>({...p,telefono:e.target.value}))} placeholder="+34 600 000 000"
+                        className="w-full bg-slate-50 rounded-xl px-3 py-2 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Dirección</label>
+                    <input value={newEmpForm.direccion} onChange={e=>setNewEmpForm(p=>({...p,direccion:e.target.value}))} placeholder="Calle Mayor 1, 1º"
+                      className="w-full bg-slate-50 rounded-xl px-3 py-2 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Ciudad</label>
+                      <input value={newEmpForm.ciudad} onChange={e=>setNewEmpForm(p=>({...p,ciudad:e.target.value}))} placeholder="Madrid"
+                        className="w-full bg-slate-50 rounded-xl px-3 py-2 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">C.P.</label>
+                      <input value={newEmpForm.codigo_postal} onChange={e=>setNewEmpForm(p=>({...p,codigo_postal:e.target.value}))} placeholder="28001"
+                        className="w-full bg-slate-50 rounded-xl px-3 py-2 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">País</label>
+                      <input value={newEmpForm.pais} onChange={e=>setNewEmpForm(p=>({...p,pais:e.target.value}))}
+                        className="w-full bg-slate-50 rounded-xl px-3 py-2 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Web</label>
+                    <input value={newEmpForm.web} onChange={e=>setNewEmpForm(p=>({...p,web:e.target.value}))} placeholder="https://empresa.com"
+                      className="w-full bg-slate-50 rounded-xl px-3 py-2 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-500 mb-1">Grupo (opcional)</label>

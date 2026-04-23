@@ -2,7 +2,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Building2, CheckCircle, XCircle, Shield, Crown, Zap, Star, ToggleLeft, ToggleRight, LogOut, RefreshCw, ChevronDown, ChevronUp, Plus, X, TrendingUp, Users, Trash2, AlertTriangle } from 'lucide-react'
+import { Building2, CheckCircle, XCircle, Shield, Crown, Zap, Star, ToggleLeft, ToggleRight, LogOut, RefreshCw, ChevronDown, ChevronUp, Plus, X, TrendingUp, Users, Trash2, AlertTriangle, PauseCircle, PlayCircle, AlertOctagon } from 'lucide-react'
 
 const PLAN_COLORS = { starter:'#6366f1', professional:'#10b981', enterprise:'#f59e0b', fichaje:'#0891b2' }
 const PLAN_ICONS  = { starter: Star, professional: Zap, enterprise: Crown, fichaje: Shield }
@@ -22,6 +22,8 @@ export default function SuperAdminPage() {
   const [loading, setLoading]     = useState(true)
   const [activeTab, setActiveTab]     = useState('clientes')
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [confirmSuspend, setConfirmSuspend] = useState(null) // {id, nombre, suspendida}
+  const [motivoSuspension, setMotivoSuspension] = useState('')
   const [expandedEmp, setExpandedEmp] = useState(null)
   const [saving, setSaving]           = useState(null)
   const [newEmpModal, setNewEmpModal] = useState(false)
@@ -31,7 +33,7 @@ export default function SuperAdminPage() {
   const cargar = useCallback(async () => {
     setLoading(true)
     const [{ data: emps }, { data: pls }, { data: feats }, { data: pfs }, { data: cfgs }, { data: ovs }] = await Promise.all([
-      supabase.from('empresas').select('*').order('created_at', {ascending:false}),
+      supabase.from('empresas').select('*').order('suspendida', {ascending:false}).order('created_at', {ascending:false}),
       supabase.from('planes').select('*').order('precio_mes'),
       supabase.from('features').select('*').order('categoria').order('nombre'),
       supabase.from('plan_features').select('*'),
@@ -85,6 +87,25 @@ export default function SuperAdminPage() {
     if (emp) await supabase.from('config_empresa').insert({ empresa_id: emp.id, plan_id: newEmpForm.plan })
     setSavingNew(false); setNewEmpModal(false)
     setNewEmpForm({ nombre:'', email:'', plan:'starter', max_empleados:'10' }); cargar()
+  }
+
+  const suspenderCliente = (id, nombre, suspendida) => {
+    setMotivoSuspension('')
+    setConfirmSuspend({ id, nombre, suspendida })
+  }
+
+  const confirmarSuspension = async () => {
+    if (!confirmSuspend) return
+    const { id, suspendida } = confirmSuspend
+    const nuevoEstado = !suspendida
+    await supabase.from('empresas').update({
+      suspendida: nuevoEstado,
+      motivo_suspension: nuevoEstado ? (motivoSuspension || 'Impago') : null,
+      fecha_suspension: nuevoEstado ? new Date().toISOString() : null,
+    }).eq('id', id)
+    setConfirmSuspend(null)
+    setMotivoSuspension('')
+    cargar()
   }
 
   const borrarCliente = (id, nombre) => setConfirmDelete({ id, nombre })
@@ -231,6 +252,20 @@ export default function SuperAdminPage() {
                             +{customCount} extra
                           </span>
                         )}
+                        {/* Badge suspendida */}
+                        {emp.suspendida && (
+                          <span className="text-[10px] bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-1">
+                            <AlertOctagon className="w-2.5 h-2.5"/> SUSPENDIDA
+                          </span>
+                        )}
+
+                        {/* BOTÓN SUSPENDER / REACTIVAR */}
+                        <button onClick={(e)=>{ e.stopPropagation(); suspenderCliente(emp.id, emp.nombre, emp.suspendida) }}
+                          title={emp.suspendida ? 'Reactivar servicio' : 'Suspender servicio'}
+                          className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${emp.suspendida ? 'text-emerald-500 hover:bg-emerald-50' : 'text-amber-500 hover:bg-amber-50'}`}>
+                          {emp.suspendida ? <PlayCircle className="w-4 h-4"/> : <PauseCircle className="w-4 h-4"/>}
+                        </button>
+
                         {/* BOTÓN BORRAR */}
                         <button onClick={(e)=>{ e.stopPropagation(); borrarCliente(emp.id, emp.nombre) }}
                           title="Borrar cliente"
@@ -430,7 +465,63 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-      {/* Modal confirmación BORRAR */}
+      {/* Modal SUSPENDER / REACTIVAR */}
+      {confirmSuspend && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className={`px-6 py-4 flex items-center gap-3 ${confirmSuspend.suspendida ? 'bg-emerald-600' : 'bg-amber-500'}`}>
+              {confirmSuspend.suspendida
+                ? <PlayCircle className="w-6 h-6 text-white flex-shrink-0"/>
+                : <PauseCircle className="w-6 h-6 text-white flex-shrink-0"/>
+              }
+              <h3 className="text-white font-bold text-lg">
+                {confirmSuspend.suspendida ? 'Reactivar servicio' : 'Suspender servicio'}
+              </h3>
+            </div>
+            <div className="p-6">
+              <div className="bg-slate-100 rounded-xl px-4 py-3 mb-4">
+                <p className="font-bold text-slate-800">{confirmSuspend.nombre}</p>
+              </div>
+              {!confirmSuspend.suspendida ? (
+                <>
+                  <p className="text-slate-500 text-sm mb-3">
+                    El cliente no podrá acceder a Nexo HR hasta que reaktives el servicio. Verá un aviso de impago.
+                  </p>
+                  <div className="mb-4">
+                    <label className="block text-xs font-medium text-slate-500 mb-1.5">Motivo (opcional)</label>
+                    <input
+                      value={motivoSuspension}
+                      onChange={e=>setMotivoSuspension(e.target.value)}
+                      placeholder="Ej: Factura #123 pendiente de pago"
+                      className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-amber-400"/>
+                  </div>
+                  <p className="text-xs text-amber-600 font-semibold mb-5">⚠️ Los usuarios verán una pantalla de servicio suspendido.</p>
+                </>
+              ) : (
+                <p className="text-slate-500 text-sm mb-5">
+                  Se restablecerá el acceso completo a Nexo HR para este cliente.
+                </p>
+              )}
+              <div className="flex gap-3">
+                <button onClick={()=>setConfirmSuspend(null)}
+                  className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">
+                  Cancelar
+                </button>
+                <button onClick={confirmarSuspension}
+                  className={`flex-1 py-2.5 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg ${confirmSuspend.suspendida ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-500 hover:bg-amber-600'}`}>
+                  {confirmSuspend.suspendida
+                    ? <><PlayCircle className="w-4 h-4"/> Reactivar</>
+                    : <><PauseCircle className="w-4 h-4"/> Suspender</>
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Modal confirmación BORRAR */
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">

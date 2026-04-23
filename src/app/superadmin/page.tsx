@@ -48,6 +48,9 @@ export default function SuperAdminPage() {
   const [newEmpModal, setNewEmpModal] = useState(false)
   const [newGrupoModal, setNewGrupoModal] = useState(false)
   const [newEmpForm, setNewEmpForm]   = useState({ nombre:'', email:'', plan:'starter', max_empleados:'10', grupo_id:'' })
+  const [newEmpPaso, setNewEmpPaso]     = useState(1) // 1=empresa, 2=admin, 3=ok
+  const [newEmpResult, setNewEmpResult] = useState(null) // {empresa, adminEmail, adminPass}
+  const [adminForm, setAdminForm]       = useState({ nombre:'', email:'', password:'' })
   const [newGrupoForm, setNewGrupoForm] = useState({ nombre:'', email_contacto:'', telefono:'' })
   const [savingNew, setSavingNew]   = useState(false)
 
@@ -98,8 +101,47 @@ export default function SuperAdminPage() {
     if (newEmpForm.grupo_id) payload.grupo_id = newEmpForm.grupo_id
     const { data: emp } = await supabase.from('empresas').insert(payload).select().single()
     if (emp) await supabase.from('config_empresa').insert({empresa_id:emp.id,plan_id:newEmpForm.plan})
-    setSavingNew(false); setNewEmpModal(false)
-    setNewEmpForm({nombre:'',email:'',plan:'starter',max_empleados:'10',grupo_id:''}); cargar()
+    setSavingNew(false)
+    // Pasar al paso 2: crear usuario admin
+    window._newEmpId = emp?.id
+    setNewEmpPaso(2)
+  }
+
+  const crearAdminEmpresa = async () => {
+    if (!adminForm.nombre||!adminForm.email||!adminForm.password) return
+    if (adminForm.password.length < 6) { alert('La contraseña debe tener al menos 6 caracteres'); return }
+    setSavingNew(true)
+    const { data:{ session } } = await supabase.auth.getSession()
+    const empId = window._newEmpId
+    const res = await fetch('https://mmujjxoywrfolbvmotya.supabase.co/functions/v1/create-user', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+session?.access_token},
+      body: JSON.stringify({
+        nombre: adminForm.nombre,
+        email: adminForm.email,
+        password: adminForm.password,
+        rol: 'owner',
+        puesto: 'Administrador',
+        departamento: 'Dirección',
+        jornada_horas: 40,
+        empresa_id: empId,
+      })
+    })
+    const data = await res.json()
+    setSavingNew(false)
+    if (!res.ok) { alert('Error al crear usuario: '+(data.error||'Error desconocido')); return }
+    setNewEmpResult({ empresa: newEmpForm.nombre, adminEmail: adminForm.email, adminPass: adminForm.password })
+    setNewEmpPaso(3)
+    cargar()
+  }
+
+  const resetNewEmpModal = () => {
+    setNewEmpModal(false)
+    setNewEmpPaso(1)
+    setNewEmpResult(null)
+    setNewEmpForm({nombre:'',email:'',plan:'starter',max_empleados:'10',grupo_id:''})
+    setAdminForm({nombre:'',email:'',password:''})
+    window._newEmpId = null
   }
 
   const crearGrupo = async () => {
@@ -561,48 +603,126 @@ export default function SuperAdminPage() {
         )}
       </div>
 
-      {/* Modal nueva empresa */}
+      {/* Modal nueva empresa - 2 pasos */}
       {newEmpModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2"><Building2 className="w-5 h-5 text-indigo-500"/> Nueva empresa</h3>
-              <button onClick={()=>setNewEmpModal(false)} className="p-1.5 hover:bg-slate-100 rounded-lg"><X className="w-4 h-4 text-slate-400"/></button>
-            </div>
-            <div className="p-6 space-y-3">
-              {[{k:'nombre',label:'Nombre empresa',ph:'ACME Corp'},{k:'email',label:'Email contacto',ph:'admin@empresa.com'}].map(f=>(
-                <div key={f.k}>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">{f.label} *</label>
-                  <input value={newEmpForm[f.k]} onChange={e=>setNewEmpForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph}
-                    className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+
+            {/* Paso 1: Datos empresa */}
+            {newEmpPaso === 1 && (
+              <>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2"><Building2 className="w-5 h-5 text-indigo-500"/> Nueva empresa</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Paso 1 de 2 — Datos de la empresa</p>
+                  </div>
+                  <button onClick={resetNewEmpModal} className="p-1.5 hover:bg-slate-100 rounded-lg"><X className="w-4 h-4 text-slate-400"/></button>
                 </div>
-              ))}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Plan</label>
-                  <select value={newEmpForm.plan} onChange={e=>setNewEmpForm(p=>({...p,plan:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400">
-                    {planes.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}
-                  </select>
+                <div className="p-6 space-y-3">
+                  {[{k:'nombre',label:'Nombre empresa',ph:'ACME Corp'},{k:'email',label:'Email empresa',ph:'admin@empresa.com'}].map(f=>(
+                    <div key={f.k}>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">{f.label} *</label>
+                      <input value={newEmpForm[f.k]} onChange={e=>setNewEmpForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph}
+                        className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                    </div>
+                  ))}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Plan</label>
+                      <select value={newEmpForm.plan} onChange={e=>setNewEmpForm(p=>({...p,plan:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400">
+                        {planes.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">Nº usuarios</label>
+                      <input type="number" value={newEmpForm.max_empleados} onChange={e=>setNewEmpForm(p=>({...p,max_empleados:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Grupo (opcional)</label>
+                    <select value={newEmpForm.grupo_id} onChange={e=>setNewEmpForm(p=>({...p,grupo_id:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400">
+                      <option value="">Sin grupo</option>
+                      {grupos.map(g=><option key={g.id} value={g.id}>{g.nombre}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Nº usuarios</label>
-                  <input type="number" value={newEmpForm.max_empleados} onChange={e=>setNewEmpForm(p=>({...p,max_empleados:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                <div className="flex gap-3 px-6 pb-6">
+                  <button onClick={resetNewEmpModal} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-500 hover:bg-slate-50">Cancelar</button>
+                  <button onClick={crearEmpresa} disabled={savingNew||!newEmpForm.nombre||!newEmpForm.email} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                    {savingNew?'Creando...':'Siguiente →'}
+                  </button>
                 </div>
+              </>
+            )}
+
+            {/* Paso 2: Crear usuario admin */}
+            {newEmpPaso === 2 && (
+              <>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2"><Users className="w-5 h-5 text-emerald-500"/> Usuario administrador</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Paso 2 de 2 — Acceso para <span className="font-medium text-slate-600">{newEmpForm.nombre}</span></p>
+                  </div>
+                </div>
+                <div className="p-6 space-y-3">
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-3 text-xs text-indigo-700">
+                    Empresa creada ✓ Ahora crea el usuario administrador que gestionará esta cuenta.
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Nombre completo *</label>
+                    <input value={adminForm.nombre} onChange={e=>setAdminForm(p=>({...p,nombre:e.target.value}))} placeholder="Ana García"
+                      className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-emerald-400"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Email de acceso *</label>
+                    <input type="email" value={adminForm.email} onChange={e=>setAdminForm(p=>({...p,email:e.target.value}))} placeholder="ana@empresa.com"
+                      className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-emerald-400"/>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Contraseña inicial *</label>
+                    <input type="text" value={adminForm.password} onChange={e=>setAdminForm(p=>({...p,password:e.target.value}))} placeholder="Mín. 6 caracteres"
+                      className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-emerald-400"/>
+                    <p className="text-xs text-slate-400 mt-1">El cliente la puede cambiar después desde su perfil</p>
+                  </div>
+                </div>
+                <div className="flex gap-3 px-6 pb-6">
+                  <button onClick={resetNewEmpModal} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-500 hover:bg-slate-50">Saltar</button>
+                  <button onClick={crearAdminEmpresa} disabled={savingNew||!adminForm.nombre||!adminForm.email||!adminForm.password} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                    {savingNew?'Creando acceso...':'Crear acceso'}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Paso 3: Resumen con credenciales */}
+            {newEmpPaso === 3 && newEmpResult && (
+              <div className="p-6 text-center">
+                <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-emerald-600"/>
+                </div>
+                <h3 className="text-xl font-black text-slate-800 mb-1">¡Todo listo!</h3>
+                <p className="text-slate-400 text-sm mb-5">{newEmpResult.empresa} ya está activa en Nexo HR</p>
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left mb-5 space-y-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Credenciales de acceso</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">URL</span>
+                    <span className="text-xs font-mono font-bold text-indigo-600">pruebasgrupoaxen.com/login</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Email</span>
+                    <span className="text-xs font-mono font-bold text-slate-700">{newEmpResult.adminEmail}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500">Contraseña</span>
+                    <span className="text-xs font-mono font-bold text-slate-700">{newEmpResult.adminPass}</span>
+                  </div>
+                </div>
+                <button onClick={resetNewEmpModal} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold">
+                  Cerrar
+                </button>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Asignar a grupo (opcional)</label>
-                <select value={newEmpForm.grupo_id} onChange={e=>setNewEmpForm(p=>({...p,grupo_id:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400">
-                  <option value="">Sin grupo (empresa independiente)</option>
-                  {grupos.map(g=><option key={g.id} value={g.id}>{g.nombre}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-3 px-6 pb-6">
-              <button onClick={()=>setNewEmpModal(false)} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-500 hover:bg-slate-50">Cancelar</button>
-              <button onClick={crearEmpresa} disabled={savingNew} className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2">
-                <Plus className="w-4 h-4"/> {savingNew?'Creando...':'Crear empresa'}
-              </button>
-            </div>
+            )}
+
           </div>
         </div>
       )}

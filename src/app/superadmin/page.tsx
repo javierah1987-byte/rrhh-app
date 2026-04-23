@@ -2,16 +2,13 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Shield, LogOut, RefreshCw, Plus, X, Trash2, AlertTriangle, PauseCircle, PlayCircle,
-  AlertOctagon, CheckCircle, XCircle, ChevronDown, ChevronUp, Users, TrendingUp,
-  Star, Zap, Crown, Building2, Layers, Search, Edit3, Save } from 'lucide-react'
+import { Shield, LogOut, RefreshCw, Plus, X, Trash2, AlertTriangle, PauseCircle,
+  PlayCircle, CheckCircle, ChevronDown, ChevronUp, Users, TrendingUp,
+  Star, Zap, Crown, Layers, Search } from 'lucide-react'
+import EmpCard from './EmpCard'
 
-const PLAN_COLORS  = { starter:'#6366f1', professional:'#10b981', enterprise:'#f59e0b', fichaje:'#0891b2' }
-const PLAN_LABELS  = { starter:'Starter', professional:'Professional', enterprise:'Enterprise', fichaje:'Solo Fichaje' }
-const PLAN_ICONS   = { starter: Star, professional: Zap, enterprise: Crown, fichaje: Shield }
-const CAT_LABELS   = { tiempo:'⏰ Tiempo', ausencias:'📅 Ausencias', equipo:'👥 Equipo', reclutamiento:'💼 Reclutamiento',
-  admin:'⚙️ Admin', comunicacion:'💬 Comunicación', cumplimiento:'🔒 Cumplimiento',
-  premium:'💎 Premium', objetivos:'🎯 Objetivos', tareas:'✅ Tareas', formacion:'📚 Formación' }
+const PLAN_COLORS = { starter:'#6366f1', professional:'#10b981', enterprise:'#f59e0b', fichaje:'#0891b2' }
+const PLAN_LABELS = { starter:'Starter', professional:'Professional', enterprise:'Enterprise', fichaje:'Solo Fichaje' }
 
 export default function SuperAdminPage() {
   const [isAuth, setIsAuth] = useState(false)
@@ -62,9 +59,7 @@ export default function SuperAdminPage() {
 
   useEffect(() => { if (isAuth) cargar() }, [isAuth, cargar])
 
-  const getPlanId = empId => configs.find(c=>c.empresa_id===empId)?.plan_id
-  const getPlanFIds = planId => planFeats.filter(pf=>pf.plan_id===planId).map(pf=>pf.feature_id)
-  const hasOv = (empId, fid) => overrides.some(o=>o.empresa_id===empId&&o.feature_id===fid)
+  const getPlanId = (empId) => configs.find(c=>c.empresa_id===empId)?.plan_id || empresas.find(e=>e.id===empId)?.plan
 
   const cambiarPlan = async (empId, planId) => {
     setSaving(empId+'-plan')
@@ -77,7 +72,8 @@ export default function SuperAdminPage() {
 
   const toggleOv = async (empId, fid) => {
     setSaving(empId+'-'+fid)
-    if (hasOv(empId,fid)) await supabase.from('empresa_feature_overrides').delete().eq('empresa_id',empId).eq('feature_id',fid)
+    const exists = overrides.some(o=>o.empresa_id===empId&&o.feature_id===fid)
+    if (exists) await supabase.from('empresa_feature_overrides').delete().eq('empresa_id',empId).eq('feature_id',fid)
     else await supabase.from('empresa_feature_overrides').insert({empresa_id:empId,feature_id:fid})
     setSaving(null); cargar()
   }
@@ -87,8 +83,7 @@ export default function SuperAdminPage() {
     setSavingNew(true)
     const { data: emp } = await supabase.from('empresas').insert({
       nombre:formEmp.nombre, email:formEmp.email, plan:formEmp.plan,
-      max_empleados:+formEmp.max_empleados||10, activa:true,
-      grupo_id: formEmp.grupo_id||null,
+      max_empleados:+formEmp.max_empleados||10, activa:true, grupo_id:formEmp.grupo_id||null,
     }).select().single()
     if (emp) await supabase.from('config_empresa').insert({empresa_id:emp.id,plan_id:formEmp.plan})
     setSavingNew(false); setModalEmp(false)
@@ -104,8 +99,7 @@ export default function SuperAdminPage() {
   }
 
   const suspender = (id, nombre, suspendida, isGrupo) => {
-    setMotivo('')
-    setConfirmSusp({id, nombre, suspendida, isGrupo})
+    setMotivo(''); setConfirmSusp({id, nombre, suspendida, isGrupo})
   }
 
   const confirmarSusp = async () => {
@@ -113,15 +107,15 @@ export default function SuperAdminPage() {
     const nuevoEstado = !confirmSusp.suspendida
     const payload = { suspendida:nuevoEstado, motivo_suspension:nuevoEstado?(motivo||'Impago'):null, fecha_suspension:nuevoEstado?new Date().toISOString():null }
     if (confirmSusp.isGrupo) {
-      await supabase.from('grupos').update(payload).eq('id', confirmSusp.id)
-      await supabase.from('empresas').update({suspendida:nuevoEstado}).eq('grupo_id', confirmSusp.id)
+      await supabase.from('grupos').update(payload).eq('id',confirmSusp.id)
+      await supabase.from('empresas').update({suspendida:nuevoEstado}).eq('grupo_id',confirmSusp.id)
     } else {
-      await supabase.from('empresas').update(payload).eq('id', confirmSusp.id)
+      await supabase.from('empresas').update(payload).eq('id',confirmSusp.id)
     }
     setConfirmSusp(null); setMotivo(''); cargar()
   }
 
-  const borrar = (id, nombre, isGrupo) => setConfirmDel({id, nombre, isGrupo})
+  const borrar = (id, nombre, isGrupo) => setConfirmDel({id,nombre,isGrupo})
 
   const confirmarBorrar = async () => {
     if (!confirmDel) return
@@ -140,10 +134,17 @@ export default function SuperAdminPage() {
   }
 
   const mrr = empresas.reduce((s,emp) => {
-    const planId = getPlanId(emp.id)||emp.plan
+    const planId = getPlanId(emp.id)
     const plan = planes.find(p=>p.id===planId)
-    return s+(plan&&!emp.suspendida ? +plan.precio_mes*(emp.max_empleados||10) : 0)
-  },0)
+    return s + (plan && !emp.suspendida ? +plan.precio_mes*(emp.max_empleados||10) : 0)
+  }, 0)
+
+  const cardProps = { planes, features, planFeats, overrides, configs, expanded, setExpanded, cambiarPlan, toggleOv, suspender, borrar, saving }
+  const empSolas = empresas.filter(e=>!e.grupo_id)
+  const empFiltradas = search ? empresas.filter(e=>
+    e.nombre.toLowerCase().includes(search.toLowerCase()) ||
+    (e.email||'').toLowerCase().includes(search.toLowerCase())
+  ) : null
 
   if (!isAuth) return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center p-4">
@@ -156,7 +157,7 @@ export default function SuperAdminPage() {
         <input type="password" value={pin} onChange={e=>setPin(e.target.value)}
           onKeyDown={e=>{ if(e.key==='Enter'){ if(pin===PIN){setIsAuth(true)}else{setPinErr(true);setTimeout(()=>setPinErr(false),2000)} } }}
           placeholder="Contraseña de acceso"
-          className={`w-full bg-white/10 text-white placeholder-white/30 rounded-xl px-4 py-3 border outline-none text-sm mb-3 ${pinErr?'border-red-400':'border-white/20 focus:border-indigo-400'}`}/>
+          className="w-full bg-white/10 text-white placeholder-white/30 rounded-xl px-4 py-3 border border-white/20 focus:border-indigo-400 outline-none text-sm mb-3"/>
         {pinErr && <p className="text-red-400 text-xs text-center mb-3">Contraseña incorrecta</p>}
         <button onClick={()=>{ if(pin===PIN){setIsAuth(true)}else{setPinErr(true);setTimeout(()=>setPinErr(false),2000)} }}
           className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 font-bold text-sm transition-colors">
@@ -166,117 +167,8 @@ export default function SuperAdminPage() {
     </div>
   )
 
-  // ── Helpers de display ──
-  const empSolas = empresas.filter(e=>!e.grupo_id)
-  const empFiltradas = search
-    ? empresas.filter(e=>e.nombre.toLowerCase().includes(search.toLowerCase())||e.email?.toLowerCase().includes(search.toLowerCase()))
-    : null
-
-  const EmpCard = ({ emp, compact=false }) => {
-    const planId = getPlanId(emp.id)||emp.plan
-    const plan = planes.find(p=>p.id===planId)
-    const planColor = emp.suspendida?'#ef4444':(plan?PLAN_COLORS[plan.id]||'#64748b':'#64748b')
-    const PIcon = plan?PLAN_ICONS[plan.id]||Star:Star
-    const isOpen = expanded===emp.id
-    const planFIds = plan?getPlanFIds(plan.id):[]
-    const extra = overrides.filter(o=>o.empresa_id===emp.id&&!planFIds.includes(o.feature_id)).length
-    return (
-      <div className={`rounded-xl border overflow-hidden transition-all ${emp.suspendida?'border-red-300 bg-red-50/50':'border-slate-200 bg-white'} ${compact?'':'shadow-sm'}`}>
-        <div className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50/50"
-          onClick={()=>setExpanded(isOpen?null:emp.id)}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-white flex-shrink-0 text-sm"
-            style={{background:planColor}}>
-            {emp.suspendida?'⏸':emp.nombre.charAt(0)}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-slate-800 text-sm truncate">{emp.nombre}</p>
-            <p className="text-slate-400 text-xs truncate">{emp.email}</p>
-          </div>
-          {emp.suspendida?(
-            <span className="text-[10px] bg-red-100 text-red-700 border border-red-300 px-2 py-0.5 rounded-full font-bold flex-shrink-0">
-              ⏸ SUSP.
-            </span>
-          ):(
-            <>
-              <select value={planId||'starter'}
-                onClick={e=>e.stopPropagation()}
-                onChange={e=>cambiarPlan(emp.id,e.target.value)}
-                className="text-xs border border-slate-200 rounded-lg px-2 py-1 outline-none bg-white flex-shrink-0 font-medium"
-                style={{color:planColor}}>
-                {planes.map(p=><option key={p.id} value={p.id}>{p.nombre}</option>)}
-              </select>
-              <span className="flex items-center gap-0.5 text-slate-400 text-xs flex-shrink-0">
-                <Users className="w-3 h-3"/>{emp.max_empleados||'?'}
-              </span>
-              {extra>0&&<span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full font-bold">+{extra}</span>}
-            </>
-          )}
-          <div className="flex items-center gap-0.5 flex-shrink-0">
-            <button onClick={e=>{e.stopPropagation();suspender(emp.id,emp.nombre,emp.suspendida,false)}}
-              className={`p-1.5 rounded-lg transition-colors ${emp.suspendida?'text-emerald-500 hover:bg-emerald-50':'text-amber-400 hover:bg-amber-50'}`}>
-              {emp.suspendida?<PlayCircle className="w-3.5 h-3.5"/>:<PauseCircle className="w-3.5 h-3.5"/>}
-            </button>
-            <button onClick={e=>{e.stopPropagation();borrar(emp.id,emp.nombre,false)}}
-              className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-              <Trash2 className="w-3.5 h-3.5"/>
-            </button>
-            {isOpen?<ChevronUp className="w-4 h-4 text-slate-400"/>:<ChevronDown className="w-4 h-4 text-slate-400"/>}
-          </div>
-        </div>
-        {isOpen&&(
-          <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/30">
-            {emp.suspendida?(
-              <div>
-                <p className="text-sm text-red-600 font-medium">Servicio suspendido</p>
-                {emp.motivo_suspension&&<p className="text-xs text-red-400 mt-0.5">Motivo: {emp.motivo_suspension}</p>}
-                {emp.fecha_suspension&&<p className="text-xs text-slate-400 mt-0.5">{new Date(emp.fecha_suspension).toLocaleDateString('es-ES')}</p>}
-                <button onClick={()=>suspender(emp.id,emp.nombre,true,false)}
-                  className="mt-2 flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
-                  <PlayCircle className="w-3.5 h-3.5"/> Reactivar
-                </button>
-              </div>
-            ):(
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Features</p>
-                {Object.keys(CAT_LABELS).map(cat=>{
-                  const feats = features.filter(f=>f.categoria===cat)
-                  if(!feats.length) return null
-                  const planFIds2 = getPlanFIds(planId)
-                  return(
-                    <div key={cat} className="flex flex-wrap gap-1.5">
-                      <span className="text-[10px] text-slate-400 w-full">{CAT_LABELS[cat]}</span>
-                      {feats.map(f=>{
-                        const inPlan=planFIds2.includes(f.id)
-                        const inOv=hasOv(emp.id,f.id)
-                        const active=inPlan||inOv
-                        return(
-                          <button key={f.id} onClick={()=>toggleOv(emp.id,f.id)}
-                            disabled={saving===emp.id+'-'+f.id}
-                            className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-all
-                              ${active?(inPlan?'bg-indigo-50 text-indigo-700 border-indigo-200':'bg-emerald-50 text-emerald-700 border-emerald-200'):'bg-white text-slate-400 border-slate-200 hover:border-slate-300'}`,
-                          }>
-                            {active?<CheckCircle className="w-2.5 h-2.5"/>:<XCircle className="w-2.5 h-2.5"/>}
-                            {f.nombre}
-                            {inPlan&&!inOv&&<span className="text-[9px] opacity-60">plan</span>}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const empBuscar = empFiltradas||[]
-
   return (
     <div className="min-h-screen bg-slate-100">
-
       {/* Header */}
       <div className="bg-slate-900 px-6 py-4 flex items-center justify-between shadow-xl">
         <div className="flex items-center gap-3">
@@ -290,7 +182,7 @@ export default function SuperAdminPage() {
         </div>
         <div className="flex items-center gap-4">
           <div className="text-center hidden sm:block">
-            <p className="text-xs text-slate-400">MRR activo</p>
+            <p className="text-xs text-slate-400">MRR</p>
             <p className="text-xl font-black text-emerald-400">{mrr.toLocaleString('es-ES',{minimumFractionDigits:0})}€</p>
           </div>
           <div className="text-center hidden sm:block">
@@ -302,7 +194,7 @@ export default function SuperAdminPage() {
             <p className="text-xl font-black text-purple-400">{grupos.length}</p>
           </div>
           <button onClick={cargar} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors">
-            <RefreshCw className={`w-4 h-4 ${loading?'animate-spin':''}`}/>
+            <RefreshCw className="w-4 h-4"/>
           </button>
           <button onClick={()=>setIsAuth(false)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors">
             <LogOut className="w-4 h-4"/>
@@ -311,7 +203,7 @@ export default function SuperAdminPage() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white border-b border-slate-200 px-6 flex gap-0">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 flex gap-0 overflow-x-auto">
         {[
           {id:'clientes', label:'🏢 Clientes'},
           {id:'grupos',   label:'🗂️ Grupos'},
@@ -319,19 +211,23 @@ export default function SuperAdminPage() {
           {id:'revenue',  label:'💰 Ingresos'},
         ].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)}
-            className={`px-5 py-3.5 text-sm font-semibold border-b-2 transition-all ${tab===t.id?'border-indigo-600 text-indigo-700 bg-indigo-50/50':'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+            className="px-4 py-3.5 text-sm font-semibold border-b-2 whitespace-nowrap transition-all " +
+            (tab===t.id
+              ? 'border-indigo-600 text-indigo-700 bg-indigo-50/50'
+              : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50')
+          }>
             {t.label}
           </button>
         ))}
       </div>
 
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto">
 
-        {/* ── TAB CLIENTES ── */}
-        {tab==='clientes'&&(
+        {/* ── CLIENTES ── */}
+        {tab==='clientes' && (
           <div className="space-y-5">
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex-1 min-w-[200px] relative">
+              <div className="flex-1 min-w-[180px] relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"/>
                 <input value={search} onChange={e=>setSearch(e.target.value)}
                   placeholder="Buscar empresa..."
@@ -347,83 +243,92 @@ export default function SuperAdminPage() {
               </button>
             </div>
 
-            {loading?<div className="text-slate-400 animate-pulse text-center py-10">Cargando...</div>:search?(
-              <div className="space-y-2">
-                {empBuscar.map(emp=><EmpCard key={emp.id} emp={emp}/>)}
-                {empBuscar.length===0&&<p className="text-slate-400 text-sm text-center py-8">Sin resultados</p>}
-              </div>
-            ):(
-              <div className="space-y-4">
-                {/* Grupos */}
-                {grupos.map(g=>{
-                  const gEmps = empresas.filter(e=>e.grupo_id===g.id)
-                  const gMrr = gEmps.reduce((s,e)=>{
-                    const planId = getPlanId(e.id)||e.plan
-                    const plan = planes.find(p=>p.id===planId)
-                    return s+(plan&&!e.suspendida?+plan.precio_mes*(e.max_empleados||10):0)
-                  },0)
-                  const gEmps_total = gEmps.reduce((s,e)=>s+(e.max_empleados||0),0)
-                  const gSuspended = gEmps.every(e=>e.suspendida)
-                  return(
-                    <div key={g.id} className={`rounded-2xl border-2 overflow-hidden shadow-sm ${g.suspendida?'border-red-300':'border-purple-200'}`}>
-                      {/* Header grupo */}
-                      <div className={`px-5 py-4 flex items-center gap-3 flex-wrap ${g.suspendida?'bg-red-50':'bg-purple-50'}`}>
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-lg flex-shrink-0 ${g.suspendida?'bg-red-500':'bg-purple-600'}`}>
-                          {g.suspendida?'⏸':g.nombre.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-black text-slate-800">{g.nombre}</p>
-                            <span className="text-[10px] bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-bold">GRUPO</span>
-                            {g.suspendida&&<span className="text-[10px] bg-red-100 text-red-700 border border-red-300 px-2 py-0.5 rounded-full font-bold">⏸ SUSPENDIDO</span>}
+            {loading ? <div className="text-slate-400 animate-pulse text-center py-10">Cargando...</div>
+              : search ? (
+                <div className="space-y-2">
+                  {empFiltradas.map(emp=><EmpCard key={emp.id} emp={emp} {...cardProps}/>)}
+                  {empFiltradas.length===0 && <p className="text-slate-400 text-sm text-center py-8">Sin resultados</p>}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Grupos */}
+                  {grupos.map(g => {
+                    const gEmps = empresas.filter(e=>e.grupo_id===g.id)
+                    const gMrr = gEmps.reduce((s,e)=>{
+                      const planId = getPlanId(e.id)
+                      const plan = planes.find(p=>p.id===planId)
+                      return s+(plan&&!e.suspendida?+plan.precio_mes*(e.max_empleados||10):0)
+                    },0)
+                    const gTotal = gEmps.reduce((s,e)=>s+(e.max_empleados||0),0)
+                    const headerClass = g.suspendida
+                      ? 'px-5 py-4 flex items-center gap-3 flex-wrap bg-red-50'
+                      : 'px-5 py-4 flex items-center gap-3 flex-wrap bg-purple-50'
+                    const wrapClass = g.suspendida
+                      ? 'rounded-2xl border-2 border-red-300 overflow-hidden shadow-sm'
+                      : 'rounded-2xl border-2 border-purple-200 overflow-hidden shadow-sm'
+                    const avClass = g.suspendida
+                      ? 'w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-lg flex-shrink-0 bg-red-500'
+                      : 'w-10 h-10 rounded-xl flex items-center justify-center font-black text-white text-lg flex-shrink-0 bg-purple-600'
+                    const suspBtnClass = g.suspendida
+                      ? 'flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                      : 'flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors bg-amber-100 text-amber-700 hover:bg-amber-200'
+                    return (
+                      <div key={g.id} className={wrapClass}>
+                        <div className={headerClass}>
+                          <div className={avClass}>{g.suspendida ? '⏸' : g.nombre.charAt(0)}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-black text-slate-800">{g.nombre}</p>
+                              <span className="text-[10px] bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded-full font-bold">GRUPO</span>
+                              {g.suspendida && <span className="text-[10px] bg-red-100 text-red-700 border border-red-300 px-2 py-0.5 rounded-full font-bold">⏸ SUSPENDIDO</span>}
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="text-xs text-slate-400">{gEmps.length} empresa{gEmps.length!==1?'s':''}</span>
+                              <span className="text-xs text-slate-400">{gTotal} usuarios</span>
+                              <span className="text-xs font-semibold text-emerald-600">{gMrr.toLocaleString('es-ES',{minimumFractionDigits:0})}€/mes</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3 mt-0.5">
-                            <span className="text-xs text-slate-400">{gEmps.length} empresa{gEmps.length!==1?'s':''}</span>
-                            <span className="text-xs text-slate-400">{gEmps_total} usuarios</span>
-                            <span className="text-xs font-semibold text-emerald-600">{gMrr.toLocaleString('es-ES',{minimumFractionDigits:0})}€/mes</span>
+                          <div className="flex items-center gap-1">
+                            <button onClick={()=>suspender(g.id,g.nombre,g.suspendida,true)} className={suspBtnClass}>
+                              {g.suspendida
+                                ? <><PlayCircle className="w-3.5 h-3.5"/>Reactivar</>
+                                : <><PauseCircle className="w-3.5 h-3.5"/>Suspender</>
+                              }
+                            </button>
+                            <button onClick={()=>borrar(g.id,g.nombre,true)}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                              <Trash2 className="w-4 h-4"/>
+                            </button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <button onClick={()=>suspender(g.id,g.nombre,g.suspendida,true)}
-                            title={g.suspendida?'Reactivar grupo':'Suspender grupo'}
-                            className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${g.suspendida?'bg-emerald-100 text-emerald-700 hover:bg-emerald-200':'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}>
-                            {g.suspendida?<><PlayCircle className="w-3.5 h-3.5"/>Reactivar</>:<><PauseCircle className="w-3.5 h-3.5"/>Suspender</>}
-                          </button>
-                          <button onClick={()=>borrar(g.id,g.nombre,true)}
-                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                            <Trash2 className="w-4 h-4"/>
+                        <div className="px-4 pb-4 pt-3 bg-white space-y-2">
+                          {gEmps.map(emp=><EmpCard key={emp.id} emp={emp} {...cardProps} compact/>)}
+                          {gEmps.length===0 && <p className="text-slate-400 text-xs text-center py-3">Sin empresas en este grupo</p>}
+                          <button onClick={()=>{setFormEmp(f=>({...f,grupo_id:g.id}));setModalEmp(true)}}
+                            className="w-full flex items-center justify-center gap-2 py-2 text-xs text-purple-600 hover:text-purple-800 border border-dashed border-purple-300 hover:border-purple-500 rounded-xl transition-colors">
+                            <Plus className="w-3.5 h-3.5"/> Añadir empresa al grupo
                           </button>
                         </div>
                       </div>
-                      {/* Empresas del grupo */}
-                      <div className="px-4 pb-4 pt-3 bg-white space-y-2">
-                        {gEmps.map(emp=><EmpCard key={emp.id} emp={emp} compact/>)}
-                        {gEmps.length===0&&<p className="text-slate-400 text-xs text-center py-3">Sin empresas en este grupo</p>}
-                        <button onClick={()=>{setFormEmp(f=>({...f,grupo_id:g.id}));setModalEmp(true)}}
-                          className="w-full flex items-center justify-center gap-2 py-2 text-xs text-purple-600 hover:text-purple-800 border border-dashed border-purple-300 hover:border-purple-500 rounded-xl transition-colors">
-                          <Plus className="w-3.5 h-3.5"/> Añadir empresa al grupo
-                        </button>
+                    )
+                  })}
+                  {/* Sin grupo */}
+                  {empSolas.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">Sin grupo</p>
+                      <div className="space-y-2">
+                        {empSolas.map(emp=><EmpCard key={emp.id} emp={emp} {...cardProps}/>)}
                       </div>
                     </div>
-                  )
-                })}
-
-                {/* Empresas sin grupo */}
-                {empSolas.length>0&&(
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">Sin grupo</p>
-                    <div className="space-y-2">
-                      {empSolas.map(emp=><EmpCard key={emp.id} emp={emp}/>)}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )
+            }
           </div>
         )}
 
-        {/* ── TAB GRUPOS ── */}
-        {tab==='grupos'&&(
+        {/* ── GRUPOS ── */}
+        {tab==='grupos' && (
           <div className="space-y-5">
             <div className="flex items-center justify-between">
               <div>
@@ -435,19 +340,19 @@ export default function SuperAdminPage() {
                 <Plus className="w-4 h-4"/> Nuevo grupo
               </button>
             </div>
-            {loading?<div className="animate-pulse text-center text-slate-400 py-8">Cargando...</div>:
+            {loading ? <div className="animate-pulse text-center text-slate-400 py-8">Cargando...</div> : (
               <div className="grid gap-4">
-                {grupos.map(g=>{
+                {grupos.map(g => {
                   const gEmps = empresas.filter(e=>e.grupo_id===g.id)
                   const total_u = gEmps.reduce((s,e)=>s+(e.max_empleados||0),0)
                   const gMrr = gEmps.reduce((s,e)=>{
-                    const planId=getPlanId(e.id)||e.plan
+                    const planId=getPlanId(e.id)
                     const plan=planes.find(p=>p.id===planId)
                     return s+(plan&&!e.suspendida?+plan.precio_mes*(e.max_empleados||10):0)
                   },0)
-                  return(
+                  return (
                     <div key={g.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
                         <div className="flex items-center gap-3">
                           <div className="w-11 h-11 bg-purple-600 rounded-xl flex items-center justify-center text-white font-black text-lg">{g.nombre.charAt(0)}</div>
                           <div>
@@ -455,37 +360,31 @@ export default function SuperAdminPage() {
                             <p className="text-xs text-slate-400">{g.email_contacto||'—'} · {g.telefono||'—'}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-center">
-                            <p className="text-xs text-slate-400">Empresas</p>
-                            <p className="font-bold text-slate-700">{gEmps.length}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-xs text-slate-400">Usuarios</p>
-                            <p className="font-bold text-slate-700">{total_u}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-xs text-slate-400">MRR</p>
-                            <p className="font-bold text-emerald-600">{gMrr.toLocaleString('es-ES',{minimumFractionDigits:0})}€</p>
-                          </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-center"><p className="text-xs text-slate-400">Empresas</p><p className="font-bold text-slate-700">{gEmps.length}</p></div>
+                          <div className="text-center"><p className="text-xs text-slate-400">Usuarios</p><p className="font-bold text-slate-700">{total_u}</p></div>
+                          <div className="text-center"><p className="text-xs text-slate-400">MRR</p><p className="font-bold text-emerald-600">{gMrr.toLocaleString('es-ES',{minimumFractionDigits:0})}€</p></div>
                         </div>
                       </div>
                       <div className="px-5 py-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                          {gEmps.map(e=>{
-                            const planId=getPlanId(e.id)||e.plan
+                          {gEmps.map(e => {
+                            const planId=getPlanId(e.id)
                             const plan=planes.find(p=>p.id===planId)
                             const clr=e.suspendida?'#ef4444':(plan?PLAN_COLORS[plan.id]||'#64748b':'#64748b')
-                            const mrr2=plan&&!e.suspendida?+plan.precio_mes*(e.max_empleados||10):0
-                            return(
-                              <div key={e.id} className={`flex items-center gap-2.5 p-3 rounded-xl border ${e.suspendida?'border-red-200 bg-red-50':'border-slate-100 bg-slate-50'}`}>
-                                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                                  style={{background:clr}}>{e.nombre.charAt(0)}</div>
+                            const rev=plan&&!e.suspendida?+plan.precio_mes*(e.max_empleados||10):0
+                            const rowClass = e.suspendida
+                              ? 'flex items-center gap-2.5 p-3 rounded-xl border border-red-200 bg-red-50'
+                              : 'flex items-center gap-2.5 p-3 rounded-xl border border-slate-100 bg-slate-50'
+                            const revClass = e.suspendida ? 'text-xs font-bold flex-shrink-0 text-red-300 line-through' : 'text-xs font-bold flex-shrink-0 text-emerald-600'
+                            return (
+                              <div key={e.id} className={rowClass}>
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0" style={{background:clr}}>{e.nombre.charAt(0)}</div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-semibold text-slate-700 truncate">{e.nombre}</p>
                                   <p className="text-xs text-slate-400">{PLAN_LABELS[planId]||planId} · {e.max_empleados||0}u</p>
                                 </div>
-                                <p className={`text-xs font-bold flex-shrink-0 ${e.suspendida?'text-red-400 line-through':'text-emerald-600'}`}>{mrr2.toLocaleString('es-ES',{minimumFractionDigits:0})}€</p>
+                                <p className={revClass}>{rev.toLocaleString('es-ES',{minimumFractionDigits:0})}€</p>
                               </div>
                             )
                           })}
@@ -494,14 +393,14 @@ export default function SuperAdminPage() {
                     </div>
                   )
                 })}
-                {grupos.length===0&&<p className="text-slate-400 text-sm text-center py-10">No hay grupos creados todavía</p>}
+                {grupos.length===0 && <p className="text-slate-400 text-sm text-center py-10">No hay grupos creados todavía</p>}
               </div>
-            }
+            )}
           </div>
         )}
 
-        {/* ── TAB PLANES ── */}
-        {tab==='planes'&&(
+        {/* ── PLANES ── */}
+        {tab==='planes' && (
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-slate-800">Comparar planes</h2>
             <div className="overflow-x-auto">
@@ -509,35 +408,32 @@ export default function SuperAdminPage() {
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
                     <th className="px-5 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider w-48">Feature</th>
-                    {planes.map(p=>{
-                      const Icon=PLAN_ICONS[p.id]||Star
-                      return(
-                        <th key={p.id} className="px-4 py-3 text-center" style={{color:PLAN_COLORS[p.id]||'#64748b'}}>
-                          <div className="flex flex-col items-center gap-1">
-                            <Icon className="w-4 h-4"/>
-                            <span className="text-xs font-bold uppercase tracking-wide">{p.nombre}</span>
-                            <span className="text-slate-400 font-normal text-xs normal-case">{p.precio_mes}€/u/mes</span>
-                          </div>
-                        </th>
-                      )
-                    })}
+                    {planes.map(p => (
+                      <th key={p.id} className="px-4 py-3 text-center" style={{color:PLAN_COLORS[p.id]||'#64748b'}}>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-xs font-bold uppercase tracking-wide">{p.nombre}</span>
+                          <span className="text-slate-400 font-normal text-xs normal-case">{p.precio_mes}€/u/mes</span>
+                        </div>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.keys(CAT_LABELS).map(cat=>{
-                    const feats=features.filter(f=>f.categoria===cat)
-                    if(!feats.length) return null
-                    return[
-                      <tr key={`h-${cat}`} className="bg-slate-50/80">
-                        <td colSpan={planes.length+1} className="px-5 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">{CAT_LABELS[cat]}</td>
+                  {['tiempo','ausencias','equipo','reclutamiento','admin','comunicacion','cumplimiento','premium','objetivos','tareas','formacion'].map(cat => {
+                    const feats = features.filter(f=>f.categoria===cat)
+                    if (!feats.length) return null
+                    const catLabel = {tiempo:'⏰ Tiempo',ausencias:'📅 Ausencias',equipo:'👥 Equipo',reclutamiento:'💼 Reclutamiento',admin:'⚙️ Admin',comunicacion:'💬 Comunicación',cumplimiento:'🔒 Cumplimiento',premium:'💎 Premium',objetivos:'🎯 Objetivos',tareas:'✅ Tareas',formacion:'📚 Formación'}[cat]||cat
+                    return [
+                      <tr key={'h-'+cat} className="bg-slate-50/80">
+                        <td colSpan={planes.length+1} className="px-5 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider">{catLabel}</td>
                       </tr>,
                       ...feats.map(f=>(
                         <tr key={f.id} className="border-t border-slate-50 hover:bg-slate-50/40">
                           <td className="px-5 py-2 text-sm text-slate-600">{f.nombre}</td>
-                          {planes.map(p=>{
-                            const has=planFeats.some(pf=>pf.plan_id===p.id&&pf.feature_id===f.id)
-                            return(<td key={p.id} className="px-4 py-2 text-center">
-                              {has?<CheckCircle className="w-4 h-4 text-emerald-500 mx-auto"/>:<span className="text-slate-200">—</span>}
+                          {planes.map(p => {
+                            const has = planFeats.some(pf=>pf.plan_id===p.id&&pf.feature_id===f.id)
+                            return (<td key={p.id} className="px-4 py-2 text-center">
+                              {has ? <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto"/> : <span className="text-slate-200">—</span>}
                             </td>)
                           })}
                         </tr>
@@ -550,71 +446,66 @@ export default function SuperAdminPage() {
           </div>
         )}
 
-        {/* ── TAB INGRESOS ── */}
-        {tab==='revenue'&&(
+        {/* ── INGRESOS ── */}
+        {tab==='revenue' && (
           <div className="space-y-5">
             <h2 className="text-lg font-bold text-slate-800">Ingresos recurrentes</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                {l:'MRR',       v:mrr.toLocaleString('es-ES',{minimumFractionDigits:2})+'€', c:'text-emerald-600', bg:'bg-emerald-50 border-emerald-200'},
-                {l:'ARR',       v:(mrr*12).toLocaleString('es-ES',{minimumFractionDigits:0})+'€', c:'text-indigo-600', bg:'bg-indigo-50 border-indigo-200'},
-                {l:'Empresas',  v:empresas.length, c:'text-slate-700', bg:'bg-white border-slate-200'},
+                {l:'MRR', v:mrr.toLocaleString('es-ES',{minimumFractionDigits:2})+'€', c:'text-emerald-600', bg:'bg-emerald-50 border-emerald-200'},
+                {l:'ARR', v:(mrr*12).toLocaleString('es-ES',{minimumFractionDigits:0})+'€', c:'text-indigo-600', bg:'bg-indigo-50 border-indigo-200'},
+                {l:'Empresas', v:empresas.length, c:'text-slate-700', bg:'bg-white border-slate-200'},
                 {l:'Suspendidas', v:empresas.filter(e=>e.suspendida).length, c:'text-red-600', bg:'bg-red-50 border-red-200'},
-              ].map((k,i)=>(
-                <div key={i} className={`${k.bg} rounded-2xl border p-5`}>
-                  <p className={`text-2xl font-black ${k.c}`}>{k.v}</p>
+              ].map((k,i) => (
+                <div key={i} className={k.bg+' rounded-2xl border p-5'}>
+                  <p className={'text-2xl font-black '+k.c}>{k.v}</p>
                   <p className="text-slate-500 text-sm mt-1">{k.l}</p>
                 </div>
               ))}
             </div>
-            {/* Tabla desglose */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
                 <p className="font-bold text-slate-700 text-sm">Desglose por empresa</p>
               </div>
               <div className="divide-y divide-slate-50">
-                {/* Grupos primero */}
-                {grupos.map(g=>{
-                  const gEmps=empresas.filter(e=>e.grupo_id===g.id)
-                  const gMrr=gEmps.reduce((s,e)=>{
-                    const planId=getPlanId(e.id)||e.plan
+                {grupos.map(g => {
+                  const gEmps = empresas.filter(e=>e.grupo_id===g.id)
+                  const gMrr = gEmps.reduce((s,e)=>{
+                    const planId=getPlanId(e.id)
                     const plan=planes.find(p=>p.id===planId)
                     return s+(plan&&!e.suspendida?+plan.precio_mes*(e.max_empleados||10):0)
                   },0)
-                  return[
+                  return [
                     <div key={g.id} className="flex items-center gap-3 px-5 py-2.5 bg-purple-50">
                       <div className="w-7 h-7 bg-purple-600 rounded-lg flex items-center justify-center text-white text-xs font-black">{g.nombre.charAt(0)}</div>
-                      <div className="flex-1">
-                        <p className="text-sm font-bold text-slate-700">{g.nombre} <span className="text-[10px] text-purple-500 font-normal">grupo</span></p>
-                      </div>
+                      <p className="flex-1 text-sm font-bold text-slate-700">{g.nombre} <span className="text-[10px] text-purple-500 font-normal">grupo</span></p>
                       <p className="text-sm font-black text-emerald-600">{gMrr.toLocaleString('es-ES',{minimumFractionDigits:2})}€/mes</p>
                     </div>,
-                    ...gEmps.map(e=>{
-                      const planId=getPlanId(e.id)||e.plan
+                    ...gEmps.map(e => {
+                      const planId=getPlanId(e.id)
                       const plan=planes.find(p=>p.id===planId)
                       const rev=plan&&!e.suspendida?+plan.precio_mes*(e.max_empleados||10):0
-                      return(
+                      return (
                         <div key={e.id} className="flex items-center gap-3 px-5 py-2 pl-10">
                           <div className="w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                             style={{background:e.suspendida?'#ef4444':(plan?PLAN_COLORS[plan.id]||'#64748b':'#64748b')}}>
                             {e.nombre.charAt(0)}
                           </div>
                           <div className="flex-1">
-                            <p className="text-sm text-slate-600 truncate">{e.nombre} {e.suspendida&&<span className="text-red-500 text-xs">(suspendida)</span>}</p>
+                            <p className="text-sm text-slate-600 truncate">{e.nombre}</p>
                             <p className="text-xs text-slate-400">{PLAN_LABELS[planId]||planId} · {e.max_empleados||0}u</p>
                           </div>
-                          <p className={`text-sm font-bold flex-shrink-0 ${e.suspendida?'text-red-300 line-through':'text-slate-600'}`}>{rev.toLocaleString('es-ES',{minimumFractionDigits:2})}€</p>
+                          <p className={'text-sm font-bold flex-shrink-0 '+(e.suspendida?'text-red-300 line-through':'text-slate-600')}>{rev.toLocaleString('es-ES',{minimumFractionDigits:2})}€</p>
                         </div>
                       )
                     })
                   ]
                 })}
-                {/* Empresas sin grupo */}
-                {empSolas.map(e=>{
-                  const planId=getPlanId(e.id)||e.plan
+                {empSolas.map(e => {
+                  const planId=getPlanId(e.id)
                   const plan=planes.find(p=>p.id===planId)
                   const rev=plan&&!e.suspendida?+plan.precio_mes*(e.max_empleados||10):0
-                  return(
+                  return (
                     <div key={e.id} className="flex items-center gap-3 px-5 py-2.5">
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                         style={{background:e.suspendida?'#ef4444':(plan?PLAN_COLORS[plan.id]||'#64748b':'#64748b')}}>
@@ -624,7 +515,7 @@ export default function SuperAdminPage() {
                         <p className="text-sm font-medium text-slate-700 truncate">{e.nombre}</p>
                         <p className="text-xs text-slate-400">{PLAN_LABELS[planId]||planId} · {e.max_empleados||0}u</p>
                       </div>
-                      <p className={`text-sm font-bold flex-shrink-0 ${e.suspendida?'text-red-300 line-through':'text-emerald-600'}`}>{rev.toLocaleString('es-ES',{minimumFractionDigits:2})}€</p>
+                      <p className={'text-sm font-bold flex-shrink-0 '+(e.suspendida?'text-red-300 line-through':'text-emerald-600')}>{rev.toLocaleString('es-ES',{minimumFractionDigits:2})}€</p>
                     </div>
                   )
                 })}
@@ -634,8 +525,8 @@ export default function SuperAdminPage() {
         )}
       </div>
 
-      {/* ── MODAL nueva empresa ── */}
-      {modalEmp&&(
+      {/* Modal nueva empresa */}
+      {modalEmp && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
@@ -643,7 +534,7 @@ export default function SuperAdminPage() {
               <button onClick={()=>setModalEmp(false)} className="p-1.5 hover:bg-slate-100 rounded-lg"><X className="w-4 h-4 text-slate-400"/></button>
             </div>
             <div className="p-6 space-y-4">
-              {[{k:'nombre',l:'Nombre empresa *',ph:'ACME Corp'},{k:'email',l:'Email contacto *',ph:'admin@acme.com'}].map(f=>(
+              {[{k:'nombre',l:'Nombre *',ph:'ACME Corp'},{k:'email',l:'Email *',ph:'admin@acme.com'}].map(f=>(
                 <div key={f.k}>
                   <label className="block text-xs font-semibold text-slate-500 mb-1.5">{f.l}</label>
                   <input value={formEmp[f.k]} onChange={e=>setFormEmp(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph}
@@ -684,8 +575,8 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-      {/* ── MODAL nuevo grupo ── */}
-      {modalGrupo&&(
+      {/* Modal nuevo grupo */}
+      {modalGrupo && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-100">
@@ -693,14 +584,14 @@ export default function SuperAdminPage() {
               <button onClick={()=>setModalGrupo(false)} className="p-1.5 hover:bg-slate-100 rounded-lg"><X className="w-4 h-4 text-slate-400"/></button>
             </div>
             <div className="p-6 space-y-4">
-              {[{k:'nombre',l:'Nombre del grupo *',ph:'Grupo Axen SL'},{k:'email_contacto',l:'Email contacto',ph:'admin@grupo.com'},{k:'telefono',l:'Teléfono',ph:'+34 600 000 000'}].map(f=>(
+              {[{k:'nombre',l:'Nombre *',ph:'Grupo Axen SL'},{k:'email_contacto',l:'Email',ph:'admin@grupo.com'},{k:'telefono',l:'Teléfono',ph:'+34 600 000 000'}].map(f=>(
                 <div key={f.k}>
                   <label className="block text-xs font-semibold text-slate-500 mb-1.5">{f.l}</label>
                   <input value={formGrupo[f.k]} onChange={e=>setFormGrupo(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph}
                     className="w-full bg-slate-50 rounded-xl px-3.5 py-2.5 text-sm border border-slate-200 outline-none focus:border-purple-400"/>
                 </div>
               ))}
-              <p className="text-xs text-slate-400">Después del crear el grupo, puedes añadir empresas desde la vista de clientes.</p>
+              <p className="text-xs text-slate-400">Después podrás añadir empresas desde la vista de clientes.</p>
             </div>
             <div className="flex gap-3 px-6 pb-6">
               <button onClick={()=>setModalGrupo(false)} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-500 hover:bg-slate-50">Cancelar</button>
@@ -713,34 +604,36 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-      {/* ── MODAL suspender ── */}
-      {confirmSusp&&(
+      {/* Modal suspender */}
+      {confirmSusp && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-            <div className={`px-6 py-4 flex items-center gap-3 ${confirmSusp.suspendida?'bg-emerald-600':'bg-amber-500'}`}>
+            <div className={'px-6 py-4 flex items-center gap-3 '+(confirmSusp.suspendida?'bg-emerald-600':'bg-amber-500')}>
               {confirmSusp.suspendida?<PlayCircle className="w-6 h-6 text-white"/>:<PauseCircle className="w-6 h-6 text-white"/>}
               <div>
                 <h3 className="text-white font-bold">{confirmSusp.suspendida?'Reactivar':'Suspender'} servicio</h3>
-                {confirmSusp.isGrupo&&<p className="text-white/70 text-xs">Afecta a todas las empresas del grupo</p>}
+                {confirmSusp.isGrupo && <p className="text-white/70 text-xs">Afecta a todas las empresas del grupo</p>}
               </div>
             </div>
             <div className="p-6">
               <div className="bg-slate-100 rounded-xl px-4 py-3 mb-4">
                 <p className="font-bold text-slate-800">{confirmSusp.nombre}</p>
               </div>
-              {!confirmSusp.suspendida&&(
+              {!confirmSusp.suspendida && (
                 <>
                   <p className="text-slate-500 text-sm mb-3">Los usuarios verán una pantalla de impago hasta que reaktives el servicio.</p>
                   <input value={motivo} onChange={e=>setMotivo(e.target.value)} placeholder="Motivo: Factura #123 pendiente"
                     className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-amber-400 mb-4"/>
                 </>
               )}
-              {confirmSusp.suspendida&&<p className="text-slate-500 text-sm mb-5">Se restablecerá el acceso completo.</p>}
+              {confirmSusp.suspendida && <p className="text-slate-500 text-sm mb-5">Se restablecerá el acceso completo.</p>}
               <div className="flex gap-3">
                 <button onClick={()=>setConfirmSusp(null)} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
                 <button onClick={confirmarSusp}
-                  className={`flex-1 py-2.5 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 ${confirmSusp.suspendida?'bg-emerald-600 hover:bg-emerald-700':'bg-amber-500 hover:bg-amber-600'}`}>
-                  {confirmSusp.suspendida?<><PlayCircle className="w-4 h-4"/>Reactivar</>:<><PauseCircle className="w-4 h-4"/>Suspender</>}
+                  className={'flex-1 py-2.5 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 '+(confirmSusp.suspendida?'bg-emerald-600 hover:bg-emerald-700':'bg-amber-500 hover:bg-amber-600')}>
+                  {confirmSusp.suspendida
+                    ? <><PlayCircle className="w-4 h-4"/>Reactivar</>
+                    : <><PauseCircle className="w-4 h-4"/>Suspender</>}
                 </button>
               </div>
             </div>
@@ -748,23 +641,23 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-      {/* ── MODAL borrar ── */}
-      {confirmDel&&(
+      {/* Modal borrar */}
+      {confirmDel && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
               <AlertTriangle className="w-6 h-6 text-white"/>
               <div>
                 <h3 className="text-white font-bold">Borrar {confirmDel.isGrupo?'grupo':'cliente'}</h3>
-                {confirmDel.isGrupo&&<p className="text-white/70 text-xs">Las empresas del grupo quedan sin grupo (no se borran)</p>}
+                {confirmDel.isGrupo && <p className="text-white/70 text-xs">Las empresas del grupo quedan sin grupo (no se borran)</p>}
               </div>
             </div>
             <div className="p-6">
               <div className="bg-slate-100 rounded-xl px-4 py-3 mb-3">
                 <p className="font-bold text-slate-800">{confirmDel.nombre}</p>
-                {!confirmDel.isGrupo&&<p className="text-xs text-slate-400 mt-0.5">Los empleados quedarán inactivos.</p>}
+                {!confirmDel.isGrupo && <p className="text-xs text-slate-400 mt-0.5">Los empleados quedarán inactivos.</p>}
               </div>
-              <p className="text-xs text-red-500 font-semibold mb-5">⚠️ Esta acción no se puede deshacer.</p>
+              <p className="text-xs text-red-500 font-semibold mb-5">Esta acción no se puede deshacer.</p>
               <div className="flex gap-3">
                 <button onClick={()=>setConfirmDel(null)} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancelar</button>
                 <button onClick={confirmarBorrar} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2">
@@ -775,7 +668,6 @@ export default function SuperAdminPage() {
           </div>
         </div>
       )}
-
     </div>
   )
 }

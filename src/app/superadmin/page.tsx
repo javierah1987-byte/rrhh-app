@@ -110,12 +110,17 @@ export default function SuperAdminPage() {
   }
 
   const crearAdminEmpresa = async () => {
-    if (!adminForm.nombre||!adminForm.email) return
-    if (!useInvite && adminForm.password.length<6) { alert('Contraseña mínimo 6 caracteres'); return }
+    // Capturar valores del formulario ANTES de cualquier await (evita estado stale de React)
+    const _nombre = (adminForm.nombre || '').trim()
+    const _email  = (adminForm.email  || '').trim()
+    const _pass   = (adminForm.password || '').trim()
+    const _invite = useInvite
+    const _empId  = window._newEmpId
+    if (!_nombre || !_email) { alert('Rellena el nombre y el email'); return }
+    if (!_invite && _pass.length < 6) { alert('La contraseña debe tener al menos 6 caracteres'); return }
     setSavingNew(true)
-    const { data:{ session } } = await supabase.auth.getSession()
-    const body = { nombre:adminForm.nombre, email:adminForm.email, rol:'owner', puesto:'Administrador', departamento:'Dirección', jornada_horas:40, empresa_id:window._newEmpId, use_invite:useInvite }
-    if (!useInvite) body.password = adminForm.password
+    const body = { nombre:_nombre, email:_email, rol:'owner', puesto:'Administrador', departamento:'Dirección', jornada_horas:40, empresa_id:_empId, use_invite:_invite }
+    if (!_invite) body.password = _pass
     const res = await fetch(SURL+'/functions/v1/create-user', {
       method:'POST', headers:{'Content-Type':'application/json','x-superadmin-key':'nexohr-superadmin-2024'},
       body: JSON.stringify(body)

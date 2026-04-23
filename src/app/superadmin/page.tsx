@@ -59,7 +59,7 @@ export default function SuperAdminPage() {
       supabase.from('planes').select('*').order('precio_mes'),
       supabase.from('features').select('*').order('categoria').order('nombre'),
       supabase.from('plan_features').select('*'),
-      supabase.from('empresa_feature_overrides').select('*'),
+      supabase.from('empresas_features_override').select('*'),
     ])
     setEmpresas(emps||[]); setGrupos(grps||[]); setPlanes(pls||[])
     setFeatures(feats||[]); setPlanFeatures(pfs||[]); setOverrides(ovs||[])
@@ -70,7 +70,7 @@ export default function SuperAdminPage() {
 
   const getPlanId   = emp => emp.plan || 'starter'
   const getPlanFIds = planId => planFeatures.filter(pf=>pf.plan_id===planId).map(pf=>pf.feature_id)
-  const hasOverride = (empId,featId) => overrides.some(o=>o.empresa_id===empId&&o.feature_id===featId)
+  const hasOverride = (empId,featId) => overrides.some(o=>o.empresa_id===empId&&o.feature_id===featId&&o.activa!==false)
   const getMRREmp   = emp => { const p=planes.find(p=>p.id===getPlanId(emp)); return p?+p.precio_mes*(emp.max_empleados||10):0 }
 
   const cambiarPlan = async (empId, planId) => {
@@ -81,8 +81,8 @@ export default function SuperAdminPage() {
 
   const toggleOverride = async (empId, featId) => {
     setSaving(empId+'-'+featId)
-    if (hasOverride(empId,featId)) await supabase.from('empresa_feature_overrides').delete().eq('empresa_id',empId).eq('feature_id',featId)
-    else await supabase.from('empresa_feature_overrides').insert({empresa_id:empId,feature_id:featId})
+    if (hasOverride(empId,featId)) await supabase.from('empresas_features_override').update({activa:false}).eq('empresa_id',empId).eq('feature_id',featId)
+    else await supabase.from('empresas_features_override').insert({empresa_id:empId,feature_id:featId,activa:true})
     setSaving(null); cargar()
   }
 
@@ -144,7 +144,7 @@ export default function SuperAdminPage() {
     if (!confirmDelete) return
     const id = confirmDelete.id
     try {
-      await supabase.from('empresa_feature_overrides').delete().eq('empresa_id',id)
+      await supabase.from('empresas_features_override').delete().eq('empresa_id',id)
       await supabase.from('empleados').update({estado:'inactivo'}).eq('empresa_id',id)
       const { error } = await supabase.from('empresas').delete().eq('id',id)
       if (error) throw error

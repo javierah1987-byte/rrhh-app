@@ -1,5 +1,37 @@
 // @ts-nocheck
 'use client'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { UpsellModal } from '@/components/FeatureGate'
+import { Lock, TrendingUp } from 'lucide-react'
+
+const FEAT = 'people_analytics'
+const MIN_PLAN = 'professional'
+
+function FeatureBlockScreen({ plan, onContacto }) {
+  const [modal, setModal] = useState(false)
+  return (
+    <div className='flex flex-col items-center justify-center min-h-[70vh] p-8 text-center'>
+      <div className='w-24 h-24 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-3xl flex items-center justify-center mb-6 shadow-inner'>
+        <Lock className='w-12 h-12 text-indigo-400'/>
+      </div>
+      <h2 className='text-2xl font-black text-slate-800 mb-3'>Función no disponible en tu plan</h2>
+      <p className='text-slate-500 max-w-md mb-2'>Para acceder a esta sección necesitas el plan <strong>Professional</strong> o superior.</p>
+      <p className='text-slate-400 text-sm mb-8'>Contacta con nosotros y mejora tu plan en minutos.</p>
+      <div className='flex flex-col sm:flex-row gap-3'>
+        <button onClick={()=>setModal(true)}
+          className='bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-3.5 rounded-xl flex items-center gap-2 shadow-lg transition-colors'>
+          <TrendingUp className='w-5 h-5'/> Ver planes y mejorar
+        </button>
+        <a href='mailto:hola@tryvor.es?subject=Quiero mejorar mi plan Nexo HR'
+          className='border-2 border-indigo-200 text-indigo-600 font-semibold px-8 py-3.5 rounded-xl hover:bg-indigo-50 transition-colors'>
+          Contactar por email
+        </a>
+      </div>
+      {modal && <UpsellModal feature={FEAT} minPlan={MIN_PLAN} currentPlan={plan} onClose={()=>setModal(false)}/>}
+    </div>
+  )
+}
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { BarChart2, TrendingUp, Users, Clock, Award, AlertTriangle, Calendar, Smile } from 'lucide-react'
@@ -34,7 +66,7 @@ function BarRow({ label, value, max, color }) {
   )
 }
 
-export default function PeopleAnalyticsPage() {
+function OriginalPageContent() {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState('mes')
@@ -232,4 +264,39 @@ export default function PeopleAnalyticsPage() {
       </div>
     </div>
   )
+}
+
+// Wrapper con gate
+export default function GatedWrapper() {
+  const [hasAccess, setHasAccess] = useState(null)
+  const [plan, setPlan] = useState('starter')
+
+  useEffect(() => {
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setHasAccess(false); return }
+      const { data: emp } = await supabase.from('empleados')
+        .select('empresa_id, empresas(plan)')
+        .eq('user_id', user.id).single()
+      const empPlan = emp?.empresas?.plan || 'starter'
+      const empId = emp?.empresa_id
+      setPlan(empPlan)
+      // Check plan features
+      const { data: pf } = await supabase.from('plan_features')
+        .select('feature_id').eq('plan_id', empPlan).eq('feature_id', FEAT)
+      const { data: ov } = await supabase.from('empresas_features_override')
+        .select('activa').eq('empresa_id', empId).eq('feature_id', FEAT).single()
+      const inPlan = (pf||[]).length > 0
+      const override = ov ? ov.activa : null
+      setHasAccess(override !== null ? override : inPlan)
+    })()
+  }, [])
+
+  if (hasAccess === null) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"/>
+    </div>
+  )
+  if (!hasAccess) return <FeatureBlockScreen plan={plan}/>
+  return <OriginalPageContent/>
 }

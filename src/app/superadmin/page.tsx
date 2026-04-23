@@ -467,6 +467,9 @@ export default function SuperAdminPage() {
         </div>
       )}
     </div>
+
+  )
+
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -492,7 +495,4 @@ export default function SuperAdminPage() {
             </div>
           </div>
         </div>
-      )}
-
-  )
-}
+      )}}

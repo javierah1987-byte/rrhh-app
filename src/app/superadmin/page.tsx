@@ -22,7 +22,7 @@ export default function SuperAdminPage() {
   const [loading, setLoading]     = useState(true)
   const [activeTab, setActiveTab]     = useState('clientes')
   const [confirmDelete, setConfirmDelete] = useState(null)
-  const [confirmSuspend, setConfirmSuspend] = useState(null) // {id, nombre, suspendida}
+  const [confirmSuspend, setConfirmSuspend] = useState(null)
   const [motivoSuspension, setMotivoSuspension] = useState('')
   const [expandedEmp, setExpandedEmp] = useState(null)
   const [saving, setSaving]           = useState(null)
@@ -58,11 +58,8 @@ export default function SuperAdminPage() {
   const cambiarPlan = async (empId, planId) => {
     setSaving(empId+'-plan')
     const cfg = getConfig(empId)
-    if (cfg) {
-      await supabase.from('config_empresa').update({ plan_id: planId }).eq('empresa_id', empId)
-    } else {
-      await supabase.from('config_empresa').insert({ empresa_id: empId, plan_id: planId })
-    }
+    if (cfg) { await supabase.from('config_empresa').update({ plan_id: planId }).eq('empresa_id', empId) }
+    else { await supabase.from('config_empresa').insert({ empresa_id: empId, plan_id: planId }) }
     await supabase.from('empresas').update({ plan: planId }).eq('id', empId)
     setSaving(null); cargar()
   }
@@ -96,16 +93,13 @@ export default function SuperAdminPage() {
 
   const confirmarSuspension = async () => {
     if (!confirmSuspend) return
-    const { id, suspendida } = confirmSuspend
-    const nuevoEstado = !suspendida
+    const nuevoEstado = !confirmSuspend.suspendida
     await supabase.from('empresas').update({
       suspendida: nuevoEstado,
       motivo_suspension: nuevoEstado ? (motivoSuspension || 'Impago') : null,
       fecha_suspension: nuevoEstado ? new Date().toISOString() : null,
-    }).eq('id', id)
-    setConfirmSuspend(null)
-    setMotivoSuspension('')
-    cargar()
+    }).eq('id', confirmSuspend.id)
+    setConfirmSuspend(null); setMotivoSuspension(''); cargar()
   }
 
   const borrarCliente = (id, nombre) => setConfirmDelete({ id, nombre })
@@ -120,9 +114,7 @@ export default function SuperAdminPage() {
       const { error } = await supabase.from('empresas').delete().eq('id', id)
       if (error) throw error
       setConfirmDelete(null); cargar()
-    } catch (err) {
-      alert('Error: ' + err.message); setConfirmDelete(null)
-    }
+    } catch (err) { alert('Error: ' + err.message); setConfirmDelete(null) }
   }
 
   const mrr = empresas.reduce((s, emp) => {
@@ -159,7 +151,6 @@ export default function SuperAdminPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
@@ -183,8 +174,6 @@ export default function SuperAdminPage() {
           </button>
         </div>
       </div>
-
-      {/* Tabs */}
       <div className="bg-white border-b border-slate-200 px-6 flex gap-1">
         {tabs.map(t => (
           <button key={t.id} onClick={()=>setActiveTab(t.id)}
@@ -193,10 +182,8 @@ export default function SuperAdminPage() {
           </button>
         ))}
       </div>
-
       <div className="p-6 max-w-7xl mx-auto">
 
-        {/* TAB CLIENTES */}
         {activeTab === 'clientes' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -216,57 +203,54 @@ export default function SuperAdminPage() {
                 {empresas.map(emp => {
                   const cfg = getConfig(emp.id)
                   const plan = planes.find(p=>p.id===(cfg?.plan_id||emp.plan))
-                  const PlanIcon = plan ? (PLAN_ICONS[plan.id]||Star) : Star
-                  const planColor = plan ? (PLAN_COLORS[plan.id]||'#64748b') : '#64748b'
+                  const planColor = emp.suspendida ? '#ef4444' : (plan ? (PLAN_COLORS[plan.id]||'#64748b') : '#64748b')
                   const isOpen = expandedEmp === emp.id
                   const planFIds = plan ? getPlanFIds(plan.id) : []
                   const ovs = overrides.filter(o=>o.empresa_id===emp.id)
                   const customCount = ovs.filter(o=>!planFIds.includes(o.feature_id)).length
                   return (
-                    <div key={emp.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                      <div className="px-5 py-4 flex items-center gap-3 flex-wrap cursor-pointer hover:bg-slate-50 transition-colors"
+                    <div key={emp.id} className={`rounded-2xl border shadow-sm overflow-hidden ${emp.suspendida ? 'border-red-300 bg-red-50' : 'bg-white border-slate-200'}`}>
+                      <div className="px-5 py-4 flex items-center gap-3 flex-wrap cursor-pointer hover:bg-slate-50/50 transition-colors"
                         onClick={()=>setExpandedEmp(isOpen?null:emp.id)}>
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg flex-shrink-0 text-white"
                           style={{background: planColor}}>
-                          {emp.nombre?.charAt(0)||'?'}
+                          {emp.suspendida ? '⏸' : (emp.nombre?.charAt(0)||'?')}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-slate-800 truncate">{emp.nombre}</p>
                           <p className="text-slate-400 text-xs truncate">{emp.email}</p>
                         </div>
-                        <select value={cfg?.plan_id||emp.plan||'starter'}
-                          onClick={e=>e.stopPropagation()}
-                          onChange={e=>cambiarPlan(emp.id, e.target.value)}
-                          className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 bg-white flex-shrink-0"
-                          style={{color: planColor}}>
-                          {planes.map(p=>(
-                            <option key={p.id} value={p.id}>{p.nombre} — {p.precio_mes}€/u</option>
-                          ))}
-                        </select>
-                        <div className="flex items-center gap-1 text-slate-400 text-xs flex-shrink-0">
-                          <Users className="w-3.5 h-3.5"/>
-                          <span>{emp.max_empleados||'?'}</span>
-                        </div>
-                        {customCount > 0 && (
+                        {emp.suspendida ? (
+                          <span className="text-xs bg-red-100 text-red-700 border border-red-300 px-2.5 py-1 rounded-full font-bold flex-shrink-0 flex items-center gap-1">
+                            <AlertOctagon className="w-3 h-3"/> SUSPENDIDA
+                          </span>
+                        ) : (
+                          <select value={cfg?.plan_id||emp.plan||'starter'}
+                            onClick={e=>e.stopPropagation()}
+                            onChange={e=>cambiarPlan(emp.id, e.target.value)}
+                            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-indigo-400 bg-white flex-shrink-0"
+                            style={{color: planColor}}>
+                            {planes.map(p=>(
+                              <option key={p.id} value={p.id}>{p.nombre} — {p.precio_mes}€/u</option>
+                            ))}
+                          </select>
+                        )}
+                        {!emp.suspendida && (
+                          <div className="flex items-center gap-1 text-slate-400 text-xs flex-shrink-0">
+                            <Users className="w-3.5 h-3.5"/>
+                            <span>{emp.max_empleados||'?'}</span>
+                          </div>
+                        )}
+                        {customCount > 0 && !emp.suspendida && (
                           <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
                             +{customCount} extra
                           </span>
                         )}
-                        {/* Badge suspendida */}
-                        {emp.suspendida && (
-                          <span className="text-[10px] bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 rounded-full font-bold flex-shrink-0 flex items-center gap-1">
-                            <AlertOctagon className="w-2.5 h-2.5"/> SUSPENDIDA
-                          </span>
-                        )}
-
-                        {/* BOTÓN SUSPENDER / REACTIVAR */}
                         <button onClick={(e)=>{ e.stopPropagation(); suspenderCliente(emp.id, emp.nombre, emp.suspendida) }}
-                          title={emp.suspendida ? 'Reactivar servicio' : 'Suspender servicio'}
+                          title={emp.suspendida ? 'Reactivar servicio' : 'Suspender por impago'}
                           className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${emp.suspendida ? 'text-emerald-500 hover:bg-emerald-50' : 'text-amber-500 hover:bg-amber-50'}`}>
                           {emp.suspendida ? <PlayCircle className="w-4 h-4"/> : <PauseCircle className="w-4 h-4"/>}
                         </button>
-
-                        {/* BOTÓN BORRAR */}
                         <button onClick={(e)=>{ e.stopPropagation(); borrarCliente(emp.id, emp.nombre) }}
                           title="Borrar cliente"
                           className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors flex-shrink-0">
@@ -274,7 +258,7 @@ export default function SuperAdminPage() {
                         </button>
                         {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0"/> : <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0"/>}
                       </div>
-                      {isOpen && (
+                      {isOpen && !emp.suspendida && (
                         <div className="border-t border-slate-100 px-5 py-4 bg-slate-50/50">
                           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Features activas</p>
                           <div className="space-y-3">
@@ -308,6 +292,17 @@ export default function SuperAdminPage() {
                           </div>
                         </div>
                       )}
+                      {isOpen && emp.suspendida && (
+                        <div className="border-t border-red-200 px-5 py-4 bg-red-50/50">
+                          <p className="text-sm text-red-600 font-medium">Servicio suspendido</p>
+                          {emp.motivo_suspension && <p className="text-xs text-red-500 mt-1">Motivo: {emp.motivo_suspension}</p>}
+                          {emp.fecha_suspension && <p className="text-xs text-red-400 mt-0.5">Desde: {new Date(emp.fecha_suspension).toLocaleDateString('es-ES')}</p>}
+                          <button onClick={()=>suspenderCliente(emp.id, emp.nombre, true)}
+                            className="mt-3 flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg">
+                            <PlayCircle className="w-3.5 h-3.5"/> Reactivar servicio
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -316,7 +311,6 @@ export default function SuperAdminPage() {
           </div>
         )}
 
-        {/* TAB PLANES */}
         {activeTab === 'planes' && (
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-slate-800">Comparar planes</h2>
@@ -370,7 +364,6 @@ export default function SuperAdminPage() {
           </div>
         )}
 
-        {/* TAB REVENUE */}
         {activeTab === 'revenue' && (
           <div className="space-y-5">
             <h2 className="text-lg font-bold text-slate-800">Ingresos recurrentes</h2>
@@ -402,14 +395,14 @@ export default function SuperAdminPage() {
                   return (
                     <div key={emp.id} className="flex items-center gap-4 px-5 py-3">
                       <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                        style={{background: plan ? PLAN_COLORS[plan.id]||'#64748b' : '#64748b'}}>
-                        {emp.nombre?.charAt(0)}
+                        style={{background: emp.suspendida ? '#ef4444' : (plan ? PLAN_COLORS[plan.id]||'#64748b' : '#64748b')}}>
+                        {emp.suspendida ? '⏸' : emp.nombre?.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-700 truncate">{emp.nombre}</p>
+                        <p className="text-sm font-medium text-slate-700 truncate">{emp.nombre} {emp.suspendida && <span className="text-red-500 text-xs">(suspendida)</span>}</p>
                         <p className="text-xs text-slate-400">{plan?.nombre||'Sin plan'} · {emp.max_empleados||10} usuarios</p>
                       </div>
-                      <p className="text-sm font-bold text-emerald-600 flex-shrink-0">{revenue.toLocaleString('es-ES',{minimumFractionDigits:2})}€/mes</p>
+                      <p className={`text-sm font-bold flex-shrink-0 ${emp.suspendida ? 'text-red-400 line-through' : 'text-emerald-600'}`}>{revenue.toLocaleString('es-ES',{minimumFractionDigits:2})}€/mes</p>
                     </div>
                   )
                 })}
@@ -419,7 +412,6 @@ export default function SuperAdminPage() {
         )}
       </div>
 
-      {/* Modal nueva empresa */}
       {newEmpModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
@@ -465,7 +457,6 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-      {/* Modal SUSPENDER / REACTIVAR */}
       {confirmSuspend && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -485,7 +476,7 @@ export default function SuperAdminPage() {
               {!confirmSuspend.suspendida ? (
                 <>
                   <p className="text-slate-500 text-sm mb-3">
-                    El cliente no podrá acceder a Nexo HR hasta que reaktives el servicio. Verá un aviso de impago.
+                    El cliente no podrá acceder hasta que reaktives el servicio. Verá un aviso de impago.
                   </p>
                   <div className="mb-4">
                     <label className="block text-xs font-medium text-slate-500 mb-1.5">Motivo (opcional)</label>
@@ -499,7 +490,7 @@ export default function SuperAdminPage() {
                 </>
               ) : (
                 <p className="text-slate-500 text-sm mb-5">
-                  Se restablecerá el acceso completo a Nexo HR para este cliente.
+                  Se restablecerá el acceso completo a Nexo HR para todos los usuarios de este cliente.
                 </p>
               )}
               <div className="flex gap-3">
@@ -520,8 +511,6 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-
-      {/* Modal confirmación BORRAR */
       {confirmDelete && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">

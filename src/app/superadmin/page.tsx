@@ -106,7 +106,7 @@ export default function SuperAdminPage() {
     const body = { nombre:adminForm.nombre, email:adminForm.email, rol:'owner', puesto:'Administrador', departamento:'Dirección', jornada_horas:40, empresa_id:window._newEmpId, use_invite:useInvite }
     if (!useInvite) body.password = adminForm.password
     const res = await fetch(SURL+'/functions/v1/create-user', {
-      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+session?.access_token},
+      method:'POST', headers:{'Content-Type':'application/json','x-superadmin-key':'nexohr-superadmin-2024'},
       body: JSON.stringify(body)
     })
     const data = await res.json()

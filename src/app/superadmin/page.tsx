@@ -2,7 +2,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Building2, CheckCircle, XCircle, Shield, Crown, Zap, Star, ToggleLeft, ToggleRight, LogOut, RefreshCw, ChevronDown, ChevronUp, Plus, X, TrendingUp, Users } from 'lucide-react'
+import { Building2, CheckCircle, XCircle, Shield, Crown, Zap, Star, ToggleLeft, ToggleRight, LogOut, RefreshCw, ChevronDown, ChevronUp, Plus, X, TrendingUp, Users, Trash2, AlertTriangle } from 'lucide-react'
 
 const PLAN_COLORS = { starter:'#6366f1', professional:'#10b981', enterprise:'#f59e0b' }
 const PLAN_ICONS  = { starter: Star, professional: Zap, enterprise: Crown }
@@ -22,6 +22,7 @@ export default function SuperAdminPage() {
   const [configs, setConfigs]         = useState([])
   const [overrides, setOverrides]     = useState([])
   const [activeTab, setActiveTab]     = useState('clientes')
+  const [confirmDelete, setConfirmDelete] = useState(null)
   const [expandedEmp, setExpandedEmp] = useState(null)
   const [saving, setSaving]           = useState(null)
   const [showNewCliente, setShowNewCliente] = useState(false)
@@ -163,6 +164,26 @@ export default function SuperAdminPage() {
     return sum + (plan.precio_mes || 0) * (cfg.max_empleados || 10)
   }, 0)
 
+  const borrarCliente = (id, nombre) => setConfirmDelete({ id, nombre })
+
+  const confirmarBorrado = async () => {
+    if (!confirmDelete) return
+    const id = confirmDelete.id
+    try {
+      await supabase.from('empresa_feature_overrides').delete().eq('empresa_id', id)
+      await supabase.from('config_empresa').delete().eq('empresa_id', id)
+      await supabase.from('empleados').update({ estado: 'inactivo' }).eq('empresa_id', id)
+      const { error } = await supabase.from('empresas').delete().eq('id', id)
+      if (error) throw error
+      setConfirmDelete(null)
+      cargar()
+    } catch (err) {
+      alert('Error al borrar: ' + err.message)
+      setConfirmDelete(null)
+    }
+  }
+
+
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Header */}
@@ -260,7 +281,7 @@ export default function SuperAdminPage() {
                       }
                     </button>
 
-                    {isOpen?<ChevronUp className="w-4 h-4 text-slate-400"/>:<ChevronDown className="w-4 h-4 text-slate-400"/>}
+                    <button onClick={(e)=>{e.stopPropagation();borrarCliente(emp.id,emp.nombre)}} title="Borrar cliente" className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors mr-1 flex-shrink-0"><Trash2 className="w-4 h-4"/></button>{isOpen?<ChevronUp className="w-4 h-4 text-slate-400"/>:<ChevronDown className="w-4 h-4 text-slate-400"/>}
                   </div>
 
                   {isOpen && (
@@ -446,5 +467,32 @@ export default function SuperAdminPage() {
         </div>
       )}
     </div>
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
+              <AlertTriangle className="w-6 h-6 text-white"/>
+              <h3 className="text-white font-bold text-lg">Borrar cliente</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-3">Vas a borrar permanentemente:</p>
+              <div className="bg-slate-100 dark:bg-slate-700 rounded-xl px-4 py-3 mb-4">
+                <p className="font-bold text-slate-800 dark:text-white">{confirmDelete.nombre}</p>
+                <p className="text-xs text-slate-400 mt-0.5">Se eliminará la empresa y su configuración. Los empleados quedarán inactivos.</p>
+              </div>
+              <p className="text-xs text-red-500 font-semibold mb-5">⚠️ Esta acción no se puede deshacer.</p>
+              <div className="flex gap-3">
+                <button onClick={()=>setConfirmDelete(null)} className="flex-1 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700">
+                  Cancelar
+                </button>
+                <button onClick={confirmarBorrado} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                  <Trash2 className="w-4 h-4"/> Borrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
   )
 }

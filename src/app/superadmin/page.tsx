@@ -35,6 +35,7 @@ export default function SuperAdminPage() {
   const [expandedEmp, setExpandedEmp]     = useState(null)
   const [expandedGrupo, setExpandedGrupo] = useState(null)
   const [saving, setSaving]         = useState(null)
+  const [confirmPlan, setConfirmPlan] = useState(null) // { empId, empNombre, planActual, planNuevo }
   const [search, setSearch]         = useState('')
   const [confirmDelete, setConfirmDelete]   = useState(null)
   const [confirmSuspend, setConfirmSuspend] = useState(null)
@@ -77,6 +78,11 @@ export default function SuperAdminPage() {
     setSaving(empId+'-plan')
     await supabase.from('empresas').update({ plan: planId }).eq('id', empId)
     setSaving(null); cargar()
+  }
+  const confirmarCambioPlan = async () => {
+    if (!confirmPlan) return
+    await cambiarPlan(confirmPlan.empId, confirmPlan.planNuevo)
+    setConfirmPlan(null)
   }
 
   const toggleOverride = async (empId, featId) => {
@@ -260,7 +266,12 @@ export default function SuperAdminPage() {
                 ) : null}
                 <div className="flex items-center gap-3">
                   <label className="text-xs font-medium text-slate-500 flex-shrink-0">Plan:</label>
-                  <select value={planId} onClick={e=>e.stopPropagation()} onChange={e=>{e.stopPropagation();cambiarPlan(emp.id,e.target.value)}} disabled={isSavPlan}
+                  <select value={planId} onClick={e=>e.stopPropagation()} onChange={e=>{
+                      e.stopPropagation()
+                      const nuevoId = e.target.value
+                      if (nuevoId === planId) return
+                      setConfirmPlan({ empId:emp.id, empNombre:emp.nombre, planActual:planId, planNuevo:nuevoId })
+                    }} disabled={isSavPlan}
                     className="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-400 bg-white font-medium" style={{color:PLAN_COLORS[planId]||'#64748b'}}>
                     {planes.map(p=><option key={p.id} value={p.id}>{p.nombre} — {p.precio_mes}€/u/mes</option>)}
                   </select>
@@ -533,5 +544,48 @@ export default function SuperAdminPage() {
       )}
 
     </div>
+
+      {confirmPlan && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="px-6 py-4 flex items-center gap-3 border-b border-slate-100">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{background:PLAN_COLORS[confirmPlan.planNuevo]+'20'}}>
+                {(() => { const Icon = PLAN_ICONS[confirmPlan.planNuevo]||Star; return <Icon className="w-5 h-5" style={{color:PLAN_COLORS[confirmPlan.planNuevo]||'#64748b'}}/> })()}
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800">Cambiar plan</h3>
+                <p className="text-xs text-slate-400">{confirmPlan.empNombre}</p>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="flex flex-col items-center">
+                  <PlanBadge planId={confirmPlan.planActual}/>
+                  <span className="text-[10px] text-slate-400 mt-1">Plan actual</span>
+                </div>
+                <span className="text-slate-300 text-lg font-bold">→</span>
+                <div className="flex flex-col items-center">
+                  <PlanBadge planId={confirmPlan.planNuevo}/>
+                  <span className="text-[10px] text-slate-400 mt-1">Plan nuevo</span>
+                </div>
+              </div>
+              {PLAN_ORDER[confirmPlan.planNuevo] < PLAN_ORDER[confirmPlan.planActual] && (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 mb-4">
+                  <p className="text-xs text-amber-700 font-semibold">⚠️ Plan inferior</p>
+                  <p className="text-xs text-amber-600 mt-0.5">El cliente perderá acceso a las funciones no incluidas en el nuevo plan.</p>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button onClick={()=>setConfirmPlan(null)} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button>
+                <button onClick={confirmarCambioPlan} disabled={saving===confirmPlan.empId+'-plan'}
+                  className="flex-1 py-2.5 text-white rounded-xl text-sm font-bold disabled:opacity-50"
+                  style={{background:PLAN_COLORS[confirmPlan.planNuevo]||'#6366f1'}}>
+                  {saving===confirmPlan.empId+'-plan' ? 'Guardando...' : 'Confirmar cambio'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
   )
 }

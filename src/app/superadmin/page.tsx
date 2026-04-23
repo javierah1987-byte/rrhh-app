@@ -543,7 +543,6 @@ export default function SuperAdminPage() {
         </div>
       )}
 
-    </div>
 
       {confirmPlan && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -587,5 +586,7 @@ export default function SuperAdminPage() {
           </div>
         </div>
       )}
+
+    </div>
   )
 }

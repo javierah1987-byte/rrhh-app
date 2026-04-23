@@ -31,8 +31,8 @@ const GROUPS: NavGroup[] = [
     { icon:Building2, label:'Centros',     href:'/admin/centros' },
     { icon:Star,      label:'Evaluaciones',href:'/admin/evaluaciones' , feature:'evaluaciones'},
     { icon:UserPlus,  label:'Onboarding',   href:'/admin/onboarding' , feature:'onboarding'},
-    { icon:UserCheck, label:'Organigrama',      href:'/admin/organigrama' },
-    { icon:BarChart2, label:'People Analytics', href:'/admin/analytics' },
+    { icon:UserCheck, label:'Organigrama',      href:'/admin/organigrama', feature:'organigrama' },
+    { icon:BarChart2, label:'People Analytics', href:'/admin/analytics', feature:'people_analytics' },
   ]},
   { id:'reclutamiento', label:'Reclutamiento', icon:Briefcase, color:'#8b5cf6', items:[
     { icon:Briefcase, label:'Vacantes',    href:'/admin/reclutamiento' , feature:'reclutamiento'},

@@ -53,18 +53,18 @@ export default function SuperAdminPage() {
   const [newGrupoModal, setNewGrupoModal] = useState(false)
   const [newGrupoForm, setNewGrupoForm]   = useState({ nombre:'', email_contacto:'', telefono:'' })
 
+  const SA_CALL = async (action:string, method='GET', body?:any) => {
+    const opts:any = { method, headers:{'Content-Type':'application/json','x-superadmin-key':'nexohr-superadmin-2024'} }
+    if (body) opts.body = JSON.stringify(body)
+    const res = await fetch(`${SURL}/functions/v1/superadmin-data?action=${action}`, opts)
+    return res.json()
+  }
+
   const cargar = useCallback(async () => {
     setLoading(true)
-    const [{ data: emps }, { data: grps }, { data: pls }, { data: feats }, { data: pfs }, { data: ovs }] = await Promise.all([
-      supabase.from('empresas').select('*').order('created_at',{ascending:false}),
-      supabase.from('grupos').select('*').order('nombre'),
-      supabase.from('planes').select('*').order('precio_mes'),
-      supabase.from('features').select('*').order('categoria').order('nombre'),
-      supabase.from('plan_features').select('*'),
-      supabase.from('empresas_features_override').select('*'),
-    ])
-    setEmpresas(emps||[]); setGrupos(grps||[]); setPlanes(pls||[])
-    setFeatures(feats||[]); setPlanFeatures(pfs||[]); setOverrides(ovs||[])
+    const data = await SA_CALL('cargar')
+    setEmpresas(data.empresas||[]); setGrupos(data.grupos||[]); setPlanes(data.planes||[])
+    setFeatures(data.features||[]); setPlanFeatures(data.planFeatures||[]); setOverrides(data.overrides||[])
     setLoading(false)
   }, [])
 
@@ -77,7 +77,7 @@ export default function SuperAdminPage() {
 
   const cambiarPlan = async (empId, planId) => {
     setSaving(empId+'-plan')
-    await supabase.from('empresas').update({ plan: planId }).eq('id', empId)
+    await SA_CALL('update','POST',{table:'empresas',id:empId,data:{plan:planId}})
     setSaving(null); cargar()
   }
   const confirmarCambioPlan = async () => {
@@ -88,8 +88,11 @@ export default function SuperAdminPage() {
 
   const toggleOverride = async (empId, featId) => {
     setSaving(empId+'-'+featId)
-    if (hasOverride(empId,featId)) await supabase.from('empresas_features_override').update({activa:false}).eq('empresa_id',empId).eq('feature_id',featId)
-    else await supabase.from('empresas_features_override').insert({empresa_id:empId,feature_id:featId,activa:true})
+    if (hasOverride(empId,featId)) {
+      await SA_CALL('update','POST',{table:'empresas_features_override',idField:'empresa_id',id:empId,data:{activa:false}})
+    } else {
+      await SA_CALL('insert','POST',{table:'empresas_features_override',data:{empresa_id:empId,feature_id:featId,activa:true}})
+    }
     setSaving(null); cargar()
   }
 
@@ -158,7 +161,7 @@ export default function SuperAdminPage() {
   const crearGrupo = async () => {
     if (!newGrupoForm.nombre) return
     setSavingNew(true)
-    await supabase.from('grupos').insert({nombre:newGrupoForm.nombre,email_contacto:newGrupoForm.email_contacto||null,telefono:newGrupoForm.telefono||null})
+    await SA_CALL('insert','POST',{table:'grupos',data:{nombre:newGrupoForm.nombre,email_contacto:newGrupoForm.email_contacto||null,telefono:newGrupoForm.telefono||null}})
     setSavingNew(false); setNewGrupoModal(false); setNewGrupoForm({nombre:'',email_contacto:'',telefono:''}); cargar()
   }
 
@@ -167,8 +170,8 @@ export default function SuperAdminPage() {
     if (!confirmSuspend) return
     const nuevoEstado = !confirmSuspend.suspendida
     const update = { suspendida:nuevoEstado, motivo_suspension:nuevoEstado?(motivoSuspension||'Impago'):null, fecha_suspension:nuevoEstado?new Date().toISOString():null }
-    if (confirmSuspend.isGrupo) await supabase.from('empresas').update(update).eq('grupo_id',confirmSuspend.id)
-    else await supabase.from('empresas').update(update).eq('id',confirmSuspend.id)
+    if (confirmSuspend.isGrupo) await SA_CALL('update','POST',{table:'empresas',idField:'grupo_id',id:confirmSuspend.id,data:update})
+    else await SA_CALL('update','POST',{table:'empresas',id:confirmSuspend.id,data:update})
     setConfirmSuspend(null); setMotivoSuspension(''); cargar()
   }
 
@@ -180,18 +183,21 @@ export default function SuperAdminPage() {
     try {
       if (isGrupo) {
         // Borrar todas las empresas del grupo primero
-        const { data: empsGrupo } = await supabase.from('empresas').select('id').eq('grupo_id', id)
-        for (const emp of (empsGrupo||[])) {
-          await supabase.from('empresas_features_override').delete().eq('empresa_id', emp.id)
-          await supabase.from('empleados').update({estado:'inactivo'}).eq('empresa_id', emp.id)
-          await supabase.from('empresas').delete().eq('id', emp.id)
+        const empsGrupoData = await SA_CALL('cargar')
+        const empsGrupo = (empsGrupoData.empresas||[]).filter((e:any)=>e.grupo_id===id)
+        for (const emp of empsGrupo) {
+          await SA_CALL('delete','POST',{table:'empresas_features_override',idField:'empresa_id',id:emp.id})
+          await SA_CALL('update','POST',{table:'empleados',idField:'empresa_id',id:emp.id,data:{estado:'inactivo'}})
+          await SA_CALL('delete','POST',{table:'empresas',id:emp.id})
         }
-        const { error } = await supabase.from('grupos').delete().eq('id', id)
+        const result = await SA_CALL('delete','POST',{table:'grupos',id})
+        const error = result.error ? result : null
         if (error) throw error
       } else {
-        await supabase.from('empresas_features_override').delete().eq('empresa_id',id)
-        await supabase.from('empleados').update({estado:'inactivo'}).eq('empresa_id',id)
-        const { error } = await supabase.from('empresas').delete().eq('id',id)
+        await SA_CALL('delete','POST',{table:'empresas_features_override',idField:'empresa_id',id})
+        await SA_CALL('update','POST',{table:'empleados',idField:'empresa_id',id,data:{estado:'inactivo'}})
+        const result2 = await SA_CALL('delete','POST',{table:'empresas',id})
+        const error = result2.error ? result2 : null
         if (error) throw error
       }
       setConfirmDelete(null); cargar()
@@ -295,7 +301,7 @@ export default function SuperAdminPage() {
                 <div className="flex items-center gap-3">
                   <label className="text-xs font-medium text-slate-500 flex-shrink-0">Usuarios:</label>
                   <input type="number" defaultValue={emp.max_empleados||10}
-                    onBlur={async e=>{ await supabase.from('empresas').update({max_empleados:+e.target.value}).eq('id',emp.id); cargar() }}
+                    onBlur={async e=>{ await SA_CALL('update','POST',{table:'empresas',id:emp.id,data:{max_empleados:+e.target.value}}); cargar() }}
                     className="w-20 text-xs border border-slate-200 rounded-lg px-3 py-1.5 outline-none focus:border-indigo-400 bg-white"/>
                 </div>
                 {Object.keys(CAT_LABELS).map(cat=>{

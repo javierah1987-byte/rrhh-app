@@ -32,9 +32,9 @@ export default function LoginPage() {
     const esAdmin = ['owner','admin','manager'].includes(rol)
 
     // Redirect según plan y rol
-    if (esAdmin && plan === 'fichaje') {
-      router.push('/fichaje')
-    } else if (esAdmin) {
+    // Los admins siempre van al panel /admin (tiene fichaje + empleados)
+    // /fichaje es solo para empleados que fichan desde kiosko
+    if (esAdmin) {
       router.push('/admin')
     } else {
       router.push('/empleado')

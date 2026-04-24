@@ -1,6 +1,6 @@
 // @ts-nocheck
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CommandPalette } from '@/components/CommandPalette'
@@ -11,49 +11,21 @@ import {
   ChevronDown, Sun, Moon, Search, Menu, X, Wifi, Monitor,
   AlertCircle, Receipt, Shield, Building2,
   Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Target, Sparkles,
-  ChevronRight, Settings, CalendarRange, AlertTriangle, Mail, Heart,
-  UserPlus } from 'lucide-react'
-
-const ROUTE_FEATURE_MAP = {
-  '/admin/control-horas':          'control_horario',
-  '/admin/whois':                  'control_horario',
-  '/admin/horarios':               'turnos',
-  '/admin/correcciones':           'correcciones',
-  '/admin/bolsa-horas':            'bolsa_horas',
-  '/admin/evaluaciones':           'evaluaciones',
-  '/admin/onboarding':             'onboarding',
-  '/admin/organigrama':            'organigrama',
-  '/admin/analytics':              'people_analytics',
-  '/admin/reclutamiento':          'reclutamiento',
-  '/admin/vacaciones':             'vacaciones',
-  '/admin/bajas':                  'bajas',
-  '/admin/calendario':             'vacaciones',
-  '/admin/festivos':               'vacaciones',
-  '/admin/nominas':                'nominas',
-  '/admin/gastos':                 'gastos',
-  '/admin/documentos':             'documentos',
-  '/admin/solicitudes-documentos': 'documentos',
-  '/admin/firmas':                 'firmas',
-  '/admin/informes':               'informes',
-  '/admin/email-queue':            'avisos',
-  '/admin/okr':                    'okr',
-  '/admin/avisos':                 'avisos',
-  '/admin/encuestas':              'clima_laboral',
-  '/admin/mensajes':               'mensajes',
-  '/admin/recordatorios':          'recordatorios',
-  '/admin/rgpd':                   'rgpd',
-  '/admin/denuncias':              'denuncias',
-  '/admin/formacion':              'formacion',
-  '/admin/reservas':               'reserva_espacios',
-}
-  LayoutDashboard, Users, Clock, CalendarDays, FileText,
-  DollarSign, BarChart2, Bell, MessageSquare, Calendar,
-  Briefcase, ClipboardList, Star, Gift, LogOut,
-  ChevronDown, Sun, Moon, Search, Menu, X, Wifi, Monitor,
-  AlertCircle, Receipt, Shield, Building2,
-  Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Target, Sparkles,
   ChevronRight, Settings, CalendarRange, AlertTriangle, Mail, Heart
 , UserPlus } from 'lucide-react'
+
+const ROUTE_FEATURE_MAP = {
+  '/admin/control-horas':'control_horario','/admin/whois':'control_horario',
+  '/admin/horarios':'turnos','/admin/correcciones':'correcciones','/admin/bolsa-horas':'bolsa_horas',
+  '/admin/evaluaciones':'evaluaciones','/admin/onboarding':'onboarding','/admin/organigrama':'organigrama',
+  '/admin/analytics':'people_analytics','/admin/reclutamiento':'reclutamiento',
+  '/admin/vacaciones':'vacaciones','/admin/bajas':'bajas','/admin/calendario':'vacaciones','/admin/festivos':'vacaciones',
+  '/admin/nominas':'nominas','/admin/gastos':'gastos','/admin/documentos':'documentos',
+  '/admin/solicitudes-documentos':'documentos','/admin/firmas':'firmas','/admin/informes':'informes',
+  '/admin/email-queue':'avisos','/admin/okr':'okr','/admin/avisos':'avisos',
+  '/admin/encuestas':'clima_laboral','/admin/mensajes':'mensajes','/admin/recordatorios':'recordatorios',
+  '/admin/rgpd':'rgpd','/admin/denuncias':'denuncias','/admin/formacion':'formacion','/admin/reservas':'reserva_espacios',
+}
 
 type NavItem = { icon: any; label: string; href: string; badge?: boolean; feature?: string }
 type NavGroup = { id: string; label: string; icon: any; color: string; items: NavItem[] }
@@ -217,6 +189,7 @@ export default function AdminLayout({children}:{children:React.ReactNode}){
   const [mobileOpen,setMobileOpen]=useState(false)
   const router=useRouter()
   const pathname=usePathname()
+  const empIdRef = useRef('')
 
   useEffect(()=>{
     supabase.auth.getUser().then(async({data:{user}})=>{
@@ -227,6 +200,7 @@ export default function AdminLayout({children}:{children:React.ReactNode}){
       if(emp.empresa_id){
         // Cargar features del plan
         const{data:empresa}=await supabase.from('empresas').select('plan').eq('id',emp.empresa_id).single()
+        empIdRef.current = emp.empresa_id
         const plan=empresa?.plan||'starter'
         const{data:pfs}=await supabase.from('plan_features').select('feature_id').eq('plan_id',plan)
         // Cargar overrides activos
@@ -245,25 +219,18 @@ export default function AdminLayout({children}:{children:React.ReactNode}){
     return()=>{supabase.removeChannel(ch)}
   },[router])
 
-  // Protección de ruta: redirigir si no tiene acceso a la ruta actual
   useEffect(()=>{
-    if (!featuresLoaded) return // esperar a que carguen las features
+    if(!featuresLoaded) return
     const requiredFeature = Object.entries(ROUTE_FEATURE_MAP).find(
-      ([route]) => pathname === route || pathname.startsWith(route + '/')
+      ([route])=>pathname===route||pathname.startsWith(route+'/')
     )?.[1]
-    if (!requiredFeature) return // ruta libre
-    if (!featuresActivas.has(requiredFeature)) {
-      // Obtener el plan actual para pasarlo a la página de bloqueo
-      supabase.auth.getUser().then(async ({data:{user}}) => {
-        if (!user) return
-        const {data:emp} = await supabase.from('empleados').select('empresa_id').eq('user_id',user.id).single()
-        if (!emp?.empresa_id) return
-        const {data:empresa} = await supabase.from('empresas').select('plan').eq('id',emp.empresa_id).single()
-        const plan = empresa?.plan || 'fichaje'
-        router.replace(`/bloqueado-feature?feature=${requiredFeature}&plan=${plan}`)
-      })
-    }
-  },[pathname, featuresLoaded, featuresActivas, router])
+    if(!requiredFeature||featuresActivas.has(requiredFeature)) return
+    supabase.from('empresas').select('plan').eq('id',
+      empIdRef.current
+    ).single().then(({data:e})=>{
+      router.replace('/bloqueado-feature?feature='+requiredFeature+'&plan='+(e?.plan||'fichaje'))
+    })
+  },[pathname,featuresLoaded,featuresActivas,router])
 
   useEffect(()=>{setMobileOpen(false)},[pathname])
 

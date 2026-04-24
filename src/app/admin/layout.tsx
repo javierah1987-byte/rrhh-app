@@ -71,9 +71,8 @@ const GROUPS: NavGroup[] = [
 ]
 
 function Sidebar({ onClose, pendientes, featuresActivas, featuresLoaded }: { onClose?:()=>void; pendientes:number; featuresActivas:Set<string>; featuresLoaded:boolean }) {
-  const router = useRouter()
-  const pathname = usePathname()
   const router   = useRouter()
+  const pathname = usePathname()
   const [dark, setDark]     = useState(false)
   const [name, setName]     = useState('Admin')
   const [avatar, setAvatar] = useState('#6366f1')

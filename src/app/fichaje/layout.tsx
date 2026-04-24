@@ -55,7 +55,7 @@ export default function FichajeAdminLayout({ children }: {children:React.ReactNo
               <Clock className="w-5 h-5 text-white"/>
             </div>
             <div>
-              <p className="font-bold text-slate-800 dark:text-white text-sm leading-none">Nexo Fichaje</p>
+              <button onClick={()=>router.push('/fichaje')} className="font-bold text-slate-800 dark:text-white text-sm leading-none hover:text-indigo-600 transition-colors">Nexo HR</button>
               <p className="text-slate-400 text-[11px] mt-0.5">Control de presencia</p>
             </div>
           </div>

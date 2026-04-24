@@ -70,7 +70,8 @@ const GROUPS: NavGroup[] = [
   ]},
 ]
 
-function Sidebar({ onClose, pendientes, featuresActivas }: { onClose?:()=>void; pendientes:number; featuresActivas:Set<string> }) {
+function Sidebar({ onClose, pendientes, featuresActivas, featuresLoaded }: { onClose?:()=>void; pendientes:number; featuresActivas:Set<string>; featuresLoaded:boolean }) {
+  const router = useRouter()
   const pathname = usePathname()
   const router   = useRouter()
   const [dark, setDark]     = useState(false)
@@ -98,7 +99,7 @@ function Sidebar({ onClose, pendientes, featuresActivas }: { onClose?:()=>void; 
       <div className="flex items-center justify-between px-4 pt-5 pb-4 flex-shrink-0 border-b border-slate-100 dark:border-slate-700">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center flex-shrink-0"><span className="text-white font-black text-sm">N</span></div>
-          <div><p className="font-bold text-sm text-slate-800 dark:text-slate-200 leading-none">Nexo HR</p><p className="text-[10px] text-slate-400 mt-0.5 leading-none">by Tryvor</p></div>
+          <button onClick={()=>router.push('/admin')} className="text-left hover:opacity-75 transition-opacity"><p className="font-bold text-sm text-slate-800 dark:text-slate-200 leading-none">Nexo HR</p><p className="text-[10px] text-slate-400 mt-0.5 leading-none">by Tryvor</p></button>
         </div>
         {onClose&&<button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 lg:hidden"><X className="w-4 h-4 text-slate-500"/></button>}
       </div>
@@ -136,7 +137,7 @@ function Sidebar({ onClose, pendientes, featuresActivas }: { onClose?:()=>void; 
                   {group.items.map(item=>{
                     const active=isActive(item)
                     const Icon=item.icon
-                    const locked = item.feature && featuresActivas.size > 0 && !featuresActivas.has(item.feature)
+                    const locked = item.feature && featuresLoaded && !featuresActivas.has(item.feature)
                     return(
                       <button key={item.href} onClick={()=>{router.push(item.href);onClose?.()}}
                         title={locked ? 'Función no disponible en tu plan actual' : undefined}
@@ -171,6 +172,7 @@ function Sidebar({ onClose, pendientes, featuresActivas }: { onClose?:()=>void; 
 
 export default function AdminLayout({children}:{children:React.ReactNode}){
   const [featuresActivas, setFeaturesActivas] = useState<Set<string>>(new Set())
+  const [featuresLoaded, setFeaturesLoaded]   = useState(false)
   const [pendientes,setPendientes]=useState(0)
   const [mobileOpen,setMobileOpen]=useState(false)
   const router=useRouter()
@@ -181,6 +183,7 @@ export default function AdminLayout({children}:{children:React.ReactNode}){
       if(!user){router.push('/');return}
       const{data:emp}=await supabase.from('empleados').select('rol,empresa_id').eq('user_id',user.id).single()
       if(!emp||!['owner','admin','manager'].includes(emp.rol)){router.push('/empleado');return}
+      if(!emp.empresa_id) setFeaturesLoaded(true) // sin empresa: no gatear
       if(emp.empresa_id){
         // Cargar features del plan
         const{data:empresa}=await supabase.from('empresas').select('plan').eq('id',emp.empresa_id).single()
@@ -192,6 +195,7 @@ export default function AdminLayout({children}:{children:React.ReactNode}){
         // Aplicar overrides: si activa=true añadir, si activa=false quitar
         ;(ovs||[]).forEach((ov:any)=>{if(ov.activa===false)set.delete(ov.feature_id);else set.add(ov.feature_id)})
         setFeaturesActivas(set)
+        setFeaturesLoaded(true)
       }
     })
     supabase.from('solicitudes').select('id',{count:'exact',head:true}).eq('estado','pendiente').then(({count})=>setPendientes(count||0))
@@ -207,12 +211,12 @@ export default function AdminLayout({children}:{children:React.ReactNode}){
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-900">
       <CommandPalette/>
       <aside className="hidden lg:flex w-56 flex-shrink-0 flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-        <Sidebar pendientes={pendientes} featuresActivas={featuresActivas}/>
+        <Sidebar pendientes={pendientes} featuresActivas={featuresActivas} featuresLoaded={featuresLoaded}/>
       </aside>
       {mobileOpen&&(
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={()=>setMobileOpen(false)}/>
-          <aside className="absolute left-0 top-0 bottom-0 w-64 shadow-2xl"><Sidebar onClose={()=>setMobileOpen(false)} pendientes={pendientes} featuresActivas={featuresActivas}/></aside>
+          <aside className="absolute left-0 top-0 bottom-0 w-64 shadow-2xl"><Sidebar onClose={()=>setMobileOpen(false)} pendientes={pendientes} featuresActivas={featuresActivas} featuresLoaded={featuresLoaded}/></aside>
         </div>
       )}
       <div className="flex-1 flex flex-col overflow-hidden">

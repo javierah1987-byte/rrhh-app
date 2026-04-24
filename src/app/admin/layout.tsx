@@ -5,6 +5,14 @@ import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { CommandPalette } from '@/components/CommandPalette'
 import {
+  LayoutDashboard, Users, Clock, CalendarDays, FileText,
+  DollarSign, BarChart2, Bell, MessageSquare, Calendar,
+  Briefcase, ClipboardList, Star, Gift, LogOut,
+  ChevronDown, Sun, Moon, Search, Menu, X, Wifi, Monitor,
+  AlertCircle, Receipt, Shield, Building2,
+  Timer, UserCheck, Wallet, Megaphone, Lock, PenLine, Target, Sparkles,
+  ChevronRight, Settings, CalendarRange, AlertTriangle, Mail, Heart,
+  UserPlus } from 'lucide-react'
 
 const ROUTE_FEATURE_MAP = {
   '/admin/control-horas':          'control_horario',

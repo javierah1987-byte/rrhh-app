@@ -2,7 +2,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { CheckCircle, XCircle, Shield, Crown, Zap, Star, LogOut, RefreshCw, ChevronDown, ChevronUp, Plus, X, TrendingUp, Users, Trash2, AlertTriangle, PauseCircle, PlayCircle, AlertOctagon, Building2, Layers, Mail, Key } from 'lucide-react'
+import { CheckCircle, XCircle, Shield, Crown, Zap, Star, LogOut, RefreshCw, ChevronDown, ChevronUp, Plus, X, TrendingUp, Users, Trash2, AlertTriangle, PauseCircle, PlayCircle, AlertOctagon, Building2, Layers, Mail, Key, Pencil, Save } from 'lucide-react'
 
 const PLAN_COLORS = { starter:'#6366f1', professional:'#10b981', enterprise:'#f59e0b', fichaje:'#0891b2' }
 const PLAN_ICONS  = { starter: Star, professional: Zap, enterprise: Crown, fichaje: Shield }
@@ -36,7 +36,10 @@ export default function SuperAdminPage() {
   const [expandedEmp, setExpandedEmp]     = useState(null)
   const [expandedGrupo, setExpandedGrupo] = useState(null)
   const [saving, setSaving]         = useState(null)
-  const [confirmPlan, setConfirmPlan] = useState(null) // { empId, empNombre, planActual, planNuevo }
+  const [confirmPlan, setConfirmPlan] = useState(null)
+  const [editEmpresa, setEditEmpresa]   = useState(null) // empresa completa a editar
+  const [editForm, setEditForm]         = useState({})
+  const [savingEdit, setSavingEdit]     = useState(false) // { empId, empNombre, planActual, planNuevo }
   const [search, setSearch]         = useState('')
   const [confirmDelete, setConfirmDelete]   = useState(null)
   const [confirmSuspend, setConfirmSuspend] = useState(null)
@@ -175,6 +178,30 @@ export default function SuperAdminPage() {
     setConfirmSuspend(null); setMotivoSuspension(''); cargar()
   }
 
+  const abrirEditar = (emp) => {
+    setEditEmpresa(emp)
+    setEditForm({
+      nombre: emp.nombre||'', email: emp.email||'', cif: emp.cif||'',
+      telefono: emp.telefono||'', web: emp.web||'', sector: emp.sector||'',
+      direccion: emp.direccion||'', ciudad: emp.ciudad||'',
+      codigo_postal: emp.codigo_postal||'', pais: emp.pais||'España',
+      max_empleados: emp.max_empleados||10, grupo_id: emp.grupo_id||''
+    })
+  }
+  const guardarEditar = async () => {
+    if (!editEmpresa) return
+    setSavingEdit(true)
+    const payload = {
+      nombre: editForm.nombre, email: editForm.email, cif: editForm.cif||null,
+      telefono: editForm.telefono||null, web: editForm.web||null, sector: editForm.sector||null,
+      direccion: editForm.direccion||null, ciudad: editForm.ciudad||null,
+      codigo_postal: editForm.codigo_postal||null, pais: editForm.pais||'España',
+      max_empleados: +editForm.max_empleados||10,
+      grupo_id: editForm.grupo_id || null
+    }
+    await SA_CALL('update','POST',{table:'empresas',id:editEmpresa.id,data:payload})
+    setSavingEdit(false); setEditEmpresa(null); cargar()
+  }
   const borrarGrupo   = (id,nombre) => setConfirmDelete({id,nombre,isGrupo:true})
   const borrarCliente = (id,nombre) => setConfirmDelete({id,nombre,isGrupo:false})
   const confirmarBorrado = async () => {
@@ -253,6 +280,9 @@ export default function SuperAdminPage() {
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             <span className="text-xs font-bold text-emerald-600 mr-1">{empMRR.toFixed(0)}€</span>
+            <button onClick={e=>{e.stopPropagation();abrirEditar(emp)}} className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-50 hover:text-indigo-600" title="Editar empresa">
+              <Pencil className="w-3.5 h-3.5"/>
+            </button>
             <button onClick={e=>{e.stopPropagation();suspenderCliente(emp.id,emp.nombre,emp.suspendida,false)}}
               className={`p-1.5 rounded-lg ${emp.suspendida?'text-emerald-500 hover:bg-emerald-50':'text-amber-500 hover:bg-amber-50'}`}>
               {emp.suspendida?<PlayCircle className="w-3.5 h-3.5"/>:<PauseCircle className="w-3.5 h-3.5"/>}
@@ -604,6 +634,105 @@ export default function SuperAdminPage() {
                   {saving===confirmPlan.empId+'-plan' ? 'Guardando...' : 'Confirmar cambio'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editEmpresa && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                  <Pencil className="w-5 h-5 text-indigo-500"/> Editar empresa
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">{editEmpresa.nombre}</p>
+              </div>
+              <button onClick={()=>setEditEmpresa(null)} className="p-1.5 hover:bg-slate-100 rounded-lg"><X className="w-4 h-4 text-slate-400"/></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Datos generales</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Nombre *</label>
+                  <input value={editForm.nombre} onChange={e=>setEditForm(f=>({...f,nombre:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">CIF / NIF</label>
+                  <input value={editForm.cif} onChange={e=>setEditForm(f=>({...f,cif:e.target.value}))} placeholder="B12345678" className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Sector</label>
+                  <select value={editForm.sector} onChange={e=>setEditForm(f=>({...f,sector:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400">
+                    <option value="">Seleccionar...</option>
+                    {['Hostelería','Retail','Tecnología','Salud','Construcción','Educación','Finanzas','Logística','Industria','Servicios profesionales','Otro'].map(s=><option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider pt-1">Contacto</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Email</label>
+                  <input type="email" value={editForm.email} onChange={e=>setEditForm(f=>({...f,email:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Teléfono</label>
+                  <input value={editForm.telefono} onChange={e=>setEditForm(f=>({...f,telefono:e.target.value}))} placeholder="+34 900 000 000" className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Web</label>
+                  <input value={editForm.web} onChange={e=>setEditForm(f=>({...f,web:e.target.value}))} placeholder="https://empresa.com" className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                </div>
+              </div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider pt-1">Dirección</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Dirección</label>
+                  <input value={editForm.direccion} onChange={e=>setEditForm(f=>({...f,direccion:e.target.value}))} placeholder="Calle Mayor 1, 3º" className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Ciudad</label>
+                  <input value={editForm.ciudad} onChange={e=>setEditForm(f=>({...f,ciudad:e.target.value}))} placeholder="Madrid" className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Código postal</label>
+                  <input value={editForm.codigo_postal} onChange={e=>setEditForm(f=>({...f,codigo_postal:e.target.value}))} placeholder="28001" className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                </div>
+              </div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider pt-1">Nexo HR</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Nº usuarios</label>
+                  <input type="number" value={editForm.max_empleados} onChange={e=>setEditForm(f=>({...f,max_empleados:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400"/>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Grupo multiempresa</label>
+                  <select value={editForm.grupo_id} onChange={e=>setEditForm(f=>({...f,grupo_id:e.target.value}))} className="w-full bg-slate-50 rounded-xl px-3 py-2.5 text-sm border border-slate-200 outline-none focus:border-indigo-400">
+                    <option value="">Sin grupo (independiente)</option>
+                    {grupos.map(g=><option key={g.id} value={g.id}>{g.nombre}</option>)}
+                  </select>
+                </div>
+              </div>
+              {editForm.grupo_id && editForm.grupo_id !== editEmpresa.grupo_id && (
+                <div className="bg-purple-50 border border-purple-100 rounded-xl px-4 py-2.5 text-xs text-purple-700">
+                  <span className="font-semibold">✓ </span>
+                  Esta empresa se indexará en <span className="font-bold">{grupos.find(g=>g.id===editForm.grupo_id)?.nombre}</span>
+                </div>
+              )}
+              {!editForm.grupo_id && editEmpresa.grupo_id && (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 text-xs text-amber-700">
+                  <span className="font-semibold">⚠️ </span>
+                  Se eliminará del grupo actual
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={()=>setEditEmpresa(null)} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-500 hover:bg-slate-50">Cancelar</button>
+              <button onClick={guardarEditar} disabled={savingEdit||!editForm.nombre}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                <Save className="w-4 h-4"/> {savingEdit?'Guardando...':'Guardar cambios'}
+              </button>
             </div>
           </div>
         </div>

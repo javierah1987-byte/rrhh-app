@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { CommandPalette } from '@/components/CommandPalette'
 import {
 
-const ROUTE_FEATURE_MAP: Record<string,string> = {
+const ROUTE_FEATURE_MAP = {
   '/admin/control-horas':          'control_horario',
   '/admin/whois':                  'control_horario',
   '/admin/horarios':               'turnos',

@@ -1,3 +1,10 @@
+// @ts-nocheck
+'use client'
+import { useState, useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { CommandPalette } from '@/components/CommandPalette'
+import {
 
 const ROUTE_FEATURE_MAP: Record<string,string> = {
   '/admin/control-horas':          'control_horario',
@@ -31,13 +38,6 @@ const ROUTE_FEATURE_MAP: Record<string,string> = {
   '/admin/formacion':              'formacion',
   '/admin/reservas':               'reserva_espacios',
 }
-// @ts-nocheck
-'use client'
-import { useState, useEffect } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import { CommandPalette } from '@/components/CommandPalette'
-import {
   LayoutDashboard, Users, Clock, CalendarDays, FileText,
   DollarSign, BarChart2, Bell, MessageSquare, Calendar,
   Briefcase, ClipboardList, Star, Gift, LogOut,

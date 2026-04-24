@@ -90,22 +90,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo acceso rápido */}
-          <div className="mt-6 pt-5 border-t border-white/10">
-            <p className="text-indigo-300 text-xs text-center mb-3">Acceso rápido demo</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={()=>doLogin('admin@acme.com','admin123')}
-                className="bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl px-3 py-2.5 text-left transition-colors">
-                <p className="text-white text-xs font-semibold">👤 Admin</p>
-                <p className="text-indigo-300 text-[10px]">Panel administrador</p>
-              </button>
-              <button onClick={()=>doLogin('luis@acme.com','1234')}
-                className="bg-white/10 hover:bg-white/20 border border-white/10 rounded-xl px-3 py-2.5 text-left transition-colors">
-                <p className="text-white text-xs font-semibold">👷 Empleado</p>
-                <p className="text-indigo-300 text-[10px]">Portal empleado</p>
-              </button>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-white/20 text-xs mt-6">

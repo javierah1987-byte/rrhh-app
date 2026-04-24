@@ -27,7 +27,7 @@ const GROUPS: NavGroup[] = [
     { icon:Clock,         label:'Bolsa de horas',  href:'/admin/bolsa-horas' , feature:'bolsa_horas'},
   ]},
   { id:'equipo', label:'Equipo', icon:UserCheck, color:'#10b981', items:[
-    { icon:Users,     label:'Empleados',   href:'/admin/empleados' },
+    { icon:Users,     label:'Empleados',   href:'/admin/empleados', feature:'empleados' },
     { icon:Building2, label:'Centros',     href:'/admin/centros' },
     { icon:Star,      label:'Evaluaciones',href:'/admin/evaluaciones' , feature:'evaluaciones'},
     { icon:UserPlus,  label:'Onboarding',   href:'/admin/onboarding' , feature:'onboarding'},

@@ -152,6 +152,7 @@ export default function SuperAdminPage() {
     setNewEmpModal(false); setNewEmpPaso(1); setNewEmpResult(null)
     setNewEmpForm(EMPTY_EMP); setAdminForm({nombre:'',email:'',password:''}); setUseInvite(true)
     window._newEmpId = null
+    cargar() // Refrescar lista aunque el usuario haya pulsado Saltar
   }
 
   const crearGrupo = async () => {
@@ -171,15 +172,28 @@ export default function SuperAdminPage() {
     setConfirmSuspend(null); setMotivoSuspension(''); cargar()
   }
 
-  const borrarCliente = (id,nombre) => setConfirmDelete({id,nombre})
+  const borrarGrupo   = (id,nombre) => setConfirmDelete({id,nombre,isGrupo:true})
+  const borrarCliente = (id,nombre) => setConfirmDelete({id,nombre,isGrupo:false})
   const confirmarBorrado = async () => {
     if (!confirmDelete) return
-    const id = confirmDelete.id
+    const { id, isGrupo } = confirmDelete
     try {
-      await supabase.from('empresas_features_override').delete().eq('empresa_id',id)
-      await supabase.from('empleados').update({estado:'inactivo'}).eq('empresa_id',id)
-      const { error } = await supabase.from('empresas').delete().eq('id',id)
-      if (error) throw error
+      if (isGrupo) {
+        // Borrar todas las empresas del grupo primero
+        const { data: empsGrupo } = await supabase.from('empresas').select('id').eq('grupo_id', id)
+        for (const emp of (empsGrupo||[])) {
+          await supabase.from('empresas_features_override').delete().eq('empresa_id', emp.id)
+          await supabase.from('empleados').update({estado:'inactivo'}).eq('empresa_id', emp.id)
+          await supabase.from('empresas').delete().eq('id', emp.id)
+        }
+        const { error } = await supabase.from('grupos').delete().eq('id', id)
+        if (error) throw error
+      } else {
+        await supabase.from('empresas_features_override').delete().eq('empresa_id',id)
+        await supabase.from('empleados').update({estado:'inactivo'}).eq('empresa_id',id)
+        const { error } = await supabase.from('empresas').delete().eq('id',id)
+        if (error) throw error
+      }
       setConfirmDelete(null); cargar()
     } catch(err) { alert('Error: '+err.message); setConfirmDelete(null) }
   }
@@ -357,6 +371,7 @@ export default function SuperAdminPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <button onClick={e=>{e.stopPropagation();suspenderCliente(grupo.id,grupo.nombre,allSusp,true)}} className={`p-1.5 rounded-lg ${allSusp?'bg-emerald-500/20 text-emerald-200':'bg-amber-500/20 text-amber-200'}`}>{allSusp?<PlayCircle className="w-4 h-4"/>:<PauseCircle className="w-4 h-4"/>}</button>
+                          <button onClick={e=>{e.stopPropagation();borrarGrupo(grupo.id,grupo.nombre)}} className="p-1.5 rounded-lg bg-red-500/20 text-red-200 hover:bg-red-500/40"><Trash2 className="w-4 h-4"/></button>
                           {isOpen?<ChevronUp className="w-4 h-4 text-white/70"/>:<ChevronDown className="w-4 h-4 text-white/70"/>}
                         </div>
                       </div>
@@ -539,7 +554,7 @@ export default function SuperAdminPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
             <div className="bg-red-600 px-6 py-4 flex items-center gap-3"><AlertTriangle className="w-6 h-6 text-white"/><h3 className="text-white font-bold text-lg">Borrar empresa</h3></div>
-            <div className="p-6"><p className="text-slate-500 text-sm mb-3">Vas a borrar permanentemente:</p><div className="bg-slate-100 rounded-xl px-4 py-3 mb-4"><p className="font-bold text-slate-800">{confirmDelete.nombre}</p><p className="text-xs text-slate-400 mt-0.5">Los empleados quedarán inactivos.</p></div><p className="text-xs text-red-500 font-semibold mb-5">⚠️ Esta acción no se puede deshacer.</p><div className="flex gap-3"><button onClick={()=>setConfirmDelete(null)} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button><button onClick={confirmarBorrado} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2"><Trash2 className="w-4 h-4"/> Borrar</button></div></div>
+            <div className="p-6"><p className="text-slate-500 text-sm mb-3">Vas a borrar permanentemente:</p><div className="bg-slate-100 rounded-xl px-4 py-3 mb-4"><p className="font-bold text-slate-800">{confirmDelete.nombre}</p><p className="text-xs text-slate-400 mt-0.5">{confirmDelete.isGrupo ? 'Se borrarán todas las empresas del grupo y sus empleados quedarán inactivos.' : 'Los empleados quedarán inactivos.'}</p></div><p className="text-xs text-red-500 font-semibold mb-5">⚠️ Esta acción no se puede deshacer.</p><div className="flex gap-3"><button onClick={()=>setConfirmDelete(null)} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50">Cancelar</button><button onClick={confirmarBorrado} className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2"><Trash2 className="w-4 h-4"/> Borrar</button></div></div>
           </div>
         </div>
       )}
